@@ -244,3 +244,5 @@ cython_debug/
 !/downloads/
 
 .venv
+
+.env

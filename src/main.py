@@ -1,21 +1,29 @@
+import logging
+
 from fastapi import FastAPI
+import static_ffmpeg
 from langchain_community.document_loaders import YoutubeAudioLoader
 from langchain_community.document_loaders.generic import GenericLoader
 from langchain_community.document_loaders.parsers.audio import OpenAIWhisperParserLocal, OpenAIWhisperParser
-import static_ffmpeg
+from pydantic import BaseModel
 
 app = FastAPI()
 
 static_ffmpeg.add_paths()
 
-@app.get("/")
-async def root():
+
+class YtVideoRequest(BaseModel):
+    url: str
+
+@app.post("/youtube/transcribe")
+async def root(request: YtVideoRequest):
     print("downloading...")
 
+    # accept in json body video ur in FastAPI
+    logging.info(f"Request details: {request.url}")
 
     # inspiration: https://python.langchain.com/docs/integrations/document_loaders/youtube_audio/
-    # Two Karpathy lecture videos
-    urls = ["https://youtu.be/kCc8FmEb1nY"]
+    urls = [request.url]
 
     # Directory to save audio files
     save_dir = "./downloads/YouTube"
@@ -32,12 +40,9 @@ async def root():
     else:
         loader = GenericLoader(YoutubeAudioLoader(urls, save_dir), OpenAIWhisperParser())
     docs = loader.load()
+
+    # read all docs, get page_content and concanate
+    result = [doc.page_content for doc in docs]
     print("Ready!!!")
-    print(docs[0].page_content[0:500])
 
-    return {"message": "Hello World"}
-
-
-@app.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
+    return {"result": result}

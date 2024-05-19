@@ -1,6 +1,6 @@
 # Test your FastAPI endpoints
 
-###
+### short youtube video
 
 POST http://127.0.0.1:8000/youtube/transcribe
 Accept: application/json
@@ -9,4 +9,13 @@ Accept: application/json
 "url": "https://www.youtube.com/watch?v=TrpdXvbZ0g0"
 }
 
-###
+### long youtube video
+POST http://127.0.0.1:8000/youtube/transcribe
+Accept: application/json
+
+{
+"url": "https://www.youtube.com/watch?v=M-MlGbMitqE"
+}
+
+
+

@@ -1,5 +1,3 @@
-import logging
-
 import httpx
 import pytest
 

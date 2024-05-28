@@ -2,6 +2,8 @@ import logging
 
 from fastapi import FastAPI
 
+from routers import audio, youtube
+
 app = FastAPI()
 
 logging.basicConfig(
@@ -12,6 +14,9 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+app.include_router(audio.router)
+app.include_router(youtube.router)
 
 # Using FastAPI instance
 @app.get("/url-list")

@@ -1,18 +1,14 @@
-from pydantic import BaseModel
 import logging
 
-from main import app
+from fastapi import APIRouter
+
+from models import YtVideoRequest
 from summary.utils import summarize
 from transcribe.utils import yt_transcribe
 
+router = APIRouter()
 
-class YtVideoRequest(BaseModel):
-    url: str
-    # type is optional, default is TLDR
-    type: str = "TLDR"
-
-
-@app.post("/youtube/transcribe")
+@router.post("/youtube/transcribe")
 def yt_trans(request: YtVideoRequest):
     logging.info(f"yt transcribe - request details: {request}")
 
@@ -21,7 +17,7 @@ def yt_trans(request: YtVideoRequest):
     return {"result": result}
 
 
-@app.post("/youtube/summarize")
+@router.post("/youtube/summarize")
 def yt_summarize(request: YtVideoRequest):
     logging.info(f"yt summarize - Request details: {request}")
 

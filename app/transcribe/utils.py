@@ -1,11 +1,12 @@
 import logging
-
+from typing import BinaryIO
+from fastapi import UploadFile, File
 from langchain_community.document_loaders import YoutubeAudioLoader
 from langchain_community.document_loaders.generic import GenericLoader
-from langchain_community.document_loaders.parsers.audio import  OpenAIWhisperParser
+from langchain_community.document_loaders.parsers.audio import OpenAIWhisperParser
+from openai import OpenAI
 from pydub import AudioSegment
 
-from openai import OpenAI
 client = OpenAI()
 
 def yt_transcribe(url, save_dir,):
@@ -33,7 +34,7 @@ def yt_transcribe(url, save_dir,):
     return result
 
 
-def transcribe(file):
+def transcribe(file: UploadFile):
     """
     Transcribe audio file to text
 
@@ -41,16 +42,18 @@ def transcribe(file):
     :param file: audio file
     """
     logging.info(
-        f"Transcribing audio file: {file.filename}, content_type: {file.content_type} - file size: {file.file}")
+        f"Transcribing audio file: {file.filename}, content_type: {file.content_type} - file size: {len(file.file.size)}")
 
     docs = []
 
-    if len(file) > 24000000:
+    tempFile = file.file
+
+    if tempFile.size > 24000000:
         logging.info("File size > 24MB, splitting audio file into 10min parts")
 
         ten_minutes = 10 * 60 * 1000
 
-        parts = AudioSegment.from_file(file)
+        parts = AudioSegment.from_file(tempFile)
         # Iterate over 10 minutes
         for i in range(0, len(parts), ten_minutes):
             chunk = parts[i:i + ten_minutes]
@@ -60,11 +63,11 @@ def transcribe(file):
 
             docs += small_file(chunk_file)
     else:
-        docs = small_file(file)
+        docs = small_file(tempFile)
 
     return docs
 
-def small_file(file ):
+def small_file(file):
     logging.info( f"Transcribing audio file: {file.filename},  file size: {file.file}")
 
     transcription = client.audio.transcriptions.create(

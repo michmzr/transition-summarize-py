@@ -1,14 +1,15 @@
 import logging
-
 from fastapi import FastAPI
-
 from routers import audio, youtube
+import static_ffmpeg
 
 app = FastAPI()
 
+static_ffmpeg.add_paths()
+
 logging.basicConfig(
     level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(message)s",
+    format="%(asctime)s [%(levelname)s] [%(threadName)s] %(message)s",
     handlers=[
         logging.FileHandler("debug.log"),
         logging.StreamHandler()

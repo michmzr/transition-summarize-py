@@ -1,4 +1,6 @@
 import logging
+import os
+import random
 from typing import BinaryIO
 from fastapi import UploadFile, File
 from langchain_community.document_loaders import YoutubeAudioLoader
@@ -34,7 +36,7 @@ def yt_transcribe(url, save_dir,):
     return result
 
 
-def transcribe(file: UploadFile):
+def transcribe(file: BinaryIO):
     """
     Transcribe audio file to text
 
@@ -42,39 +44,54 @@ def transcribe(file: UploadFile):
     :param file: audio file
     """
     logging.info(
-        f"Transcribing audio file: {file.filename}, content_type: {file.content_type} - file size: {len(file.file.size)}")
+        f"Transcribing audio file: {file}")
+
+
+    # calculating total size of f in bytes
+    file_stats = os.stat(file.name)
+    logging.debug("File stats: " + str(file_stats))
+    size = file_stats.st_size
+
+    logging.debug(f"File size: {size}")
 
     docs = []
-
-    tempFile = file.file
-
-    if tempFile.size > 24000000:
-        logging.info("File size > 24MB, splitting audio file into 10min parts")
+    if size > 24000000:
+        logging.debug("File size > 24MB, splitting audio file into 10min parts")
 
         ten_minutes = 10 * 60 * 1000
 
-        parts = AudioSegment.from_file(tempFile)
-        # Iterate over 10 minutes
+        parts = AudioSegment.from_file(file)
+
+        processing_id = str(random.randint(0, 100000))
+
+        # todo parallelize
         for i in range(0, len(parts), ten_minutes):
+            logging.debug(f"Processing chunk {i} to {i + ten_minutes} / {len(parts)}")
             chunk = parts[i:i + ten_minutes]
 
-            # todo consider context problems when chunking?
-            chunk_file = chunk.export("good_morning_10.mp3", format="mp3")
+            # todo as a temp file
+            chunk_filename = f"downloads/{processing_id}chunk_{i}_file_.mp3"
+            chunk_file = chunk.export(chunk_filename, format="mp3")
 
-            docs += small_file(chunk_file)
+            docs.append(small_file(chunk_file))
+
+            logging.debug("---- Got another transcription chunk ----")
+
+            os.remove(chunk_filename)
     else:
-        docs = small_file(tempFile)
+        docs = [small_file(file)]
 
-    return docs
+    return " ".join(docs)
 
-def small_file(file):
-    logging.info( f"Transcribing audio file: {file.filename},  file size: {file.file}")
 
+def small_file(file: BinaryIO):
+    logging.info( f"Transcribing audio file using openai api: {file}")
+
+    # todo language
     transcription = client.audio.transcriptions.create(
         model="whisper-1",
         file=file,
         response_format="text",
-
     )
-
+    #logging.debug(f"-------------------\nGot from OpenAI: \n{transcription}\n--------------------\n")
     return transcription

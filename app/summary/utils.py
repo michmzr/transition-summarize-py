@@ -1,15 +1,11 @@
 import logging
-from enum import Enum
 
 from langchain.chains.llm import LLMChain
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 
-
-class SUMMARIZATION_TYPE(str, Enum):
-    CONCISE = "concise"
-    TLDR = "tldr"
-    DETAILED = "detailed"
+from models import SUMMARIZATION_TYPE
+from transcribe.utils import LANG_CODE
 
 
 def get_template(type):
@@ -24,15 +20,16 @@ def get_template(type):
     return templates[type]
 
 
-def summarize(text: str, type: SUMMARIZATION_TYPE, lang: str = "en"):
-    logging.info(f"Summarizing text with type: ${type}, lang: {lang}")
+def summarize(text: str, type: SUMMARIZATION_TYPE, lang: LANG_CODE):
+    logging.info(f"Summarizing text with type: ${type}, lang code: {lang.value}")
 
     # Define prompt
     prompt_template = get_template(type)
     prompt = PromptTemplate.from_template(prompt_template)
 
     # Define LLM chain
-    llm = ChatOpenAI(temperature=0, model_name="gpt-4o")
+    from main import get_settings
+    llm = ChatOpenAI(temperature=0, model_name="gpt-4o", api_key=get_settings().openai_api_key)
     llm_chain = LLMChain(llm=llm, prompt=prompt)
 
-    return llm_chain.run({"text": text, "lang": lang})
+    return llm_chain.run({"text": text, "lang": lang.value})

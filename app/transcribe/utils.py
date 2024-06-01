@@ -1,31 +1,33 @@
 import logging
 import os
 import random
+from enum import Enum
+from functools import lru_cache
 from typing import BinaryIO
-from fastapi import UploadFile, File
 from langchain_community.document_loaders import YoutubeAudioLoader
 from langchain_community.document_loaders.generic import GenericLoader
 from langchain_community.document_loaders.parsers.audio import OpenAIWhisperParser
-from openai import OpenAI
 from pydub import AudioSegment
 
-client = OpenAI()
 
-def yt_transcribe(url, save_dir,):
+class LANG_CODE(str, Enum):
+    ENGLISH = "en"
+    POLISH = "pl"
+
+
+def yt_transcribe(url: str, save_dir: str):
     """
     Transcribe the videos to text
 
     inspiration: https://python.langchain.com/docs/integrations/document_loaders/youtube_audio/
     :param url: yt video url
     :param save_dir:
-    :param local: set a flag to switch between local and remote parsing change this to True if you want to use local parsing
-    :return: transcribed text without timestamps
     """
     logging.info(f"Processing url: {url}, save_dir: {save_dir}")
 
-    # Transcribe the videos to text
-
-    loader = GenericLoader(YoutubeAudioLoader([url], save_dir), OpenAIWhisperParser())
+    from main import get_settings
+    loader = GenericLoader(YoutubeAudioLoader([url], save_dir),
+                           OpenAIWhisperParser(api_key=get_settings().openai_api_key))
     docs = loader.load()
 
     logging.info("Ready!!!")
@@ -36,18 +38,17 @@ def yt_transcribe(url, save_dir,):
     return result
 
 
-def transcribe(file: BinaryIO):
+def transcribe(file: BinaryIO, lang: LANG_CODE):
     """
     Transcribe audio file to text
 
     inspiration: https://python.langchain.com/docs/integrations/document_loaders/youtube_audio/
+    :param lang: Lang code
     :param file: audio file
     """
     logging.info(
-        f"Transcribing audio file: {file}")
+        f"Transcribing audio file: {file}, lang: {lang}")
 
-
-    # calculating total size of f in bytes
     file_stats = os.stat(file.name)
     logging.debug("File stats: " + str(file_stats))
     size = file_stats.st_size
@@ -73,25 +74,34 @@ def transcribe(file: BinaryIO):
             chunk_filename = f"downloads/{processing_id}chunk_{i}_file_.mp3"
             chunk_file = chunk.export(chunk_filename, format="mp3")
 
-            docs.append(small_file(chunk_file))
+            docs.append(small_file(chunk_file, lang))
 
             logging.debug("---- Got another transcription chunk ----")
 
             os.remove(chunk_filename)
     else:
-        docs = [small_file(file)]
+        docs = [small_file(file, lang)]
 
     return " ".join(docs)
 
 
-def small_file(file: BinaryIO):
-    logging.info( f"Transcribing audio file using openai api: {file}")
+@lru_cache
+def small_file(file: BinaryIO, lang: LANG_CODE):
+    """
+    :param file: binary file
+    :param lang:  language: The language of the input audio. Supplying the input language in
+              [ISO-639-1](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) format will
+              improve accuracy and latency.
+    :return:
+    """
+    logging.info(f"Transcribing audio file using openai api: {file}, with lang: {lang}")
 
-    # todo language
+    from main import client
     transcription = client.audio.transcriptions.create(
         model="whisper-1",
         file=file,
+        language=lang.value,
         response_format="text",
     )
-    #logging.debug(f"-------------------\nGot from OpenAI: \n{transcription}\n--------------------\n")
+
     return transcription

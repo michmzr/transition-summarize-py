@@ -4,36 +4,55 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from main import app
-from summary.utils import SUMMARIZATION_TYPE
+from models import SUMMARIZATION_TYPE
 
 BASE_URL = "http://127.0.0.1:8000/"
 SHORT_YT_VIDEO = "https://www.youtube.com/watch?v=WuciqTSbewY"
 
 client = TestClient(app)
 
-def test_audio_transcribe_valid_file():
+
+# Given
+@pytest.fixture
+def audio_file():
     with open('resources/audio_short.mp3', 'rb') as f:
-        response = client.post("/audio/transcribe", files={"uploaded_file": f})
-    assert response.status_code == 200
+        yield f
+
+
+# When & Then
+def test_audio_transcribe_valid_file(audio_file):
+    # When
+    response = client.post(
+        "/audio/transcribe",
+        files={"uploaded_file": audio_file},
+        data={"lang": "pl"})
+    # Then
     assert "result" in response.json()
+    assert response.status_code == 200
 
 def test_audio_transcribe_invalid_file():
+    # Given
     with open('resources/test_file.txt', 'rb') as f:
-        response = client.post("/audio/transcribe", files={"uploaded_file": f})
-    assert response.status_code == 400
+        invalid_file = f
+    # When
+    response = client.post("/audio/transcribe",
+                           files={"uploaded_file": invalid_file},
+                           data={"lang": "pl"})
+    # Then
     assert "error" in response.json()
+    assert response.status_code == 400
 
 
-def test_audio_summary():
+def given_audio_file_expect_non_empty_summary():
     with open('resources/audio_short.mp3', 'rb') as f:
         response = client.post("/audio/summary",
                                files={"uploaded_file": f},
-                               data={"type": SUMMARIZATION_TYPE.TLDR, "language": "pl"})
+                               data={"type": SUMMARIZATION_TYPE.TLDR, "lang": "pl"})
     assert response.status_code == 200
     assert "result" in response.json()
 
 @pytest.mark.asyncio
-async def test_youtube_transcribe():
+async def given_url_expect_non_empty_transcription():
     async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
         response = await ac.post("/youtube/transcribe", json={"url": SHORT_YT_VIDEO})
     assert response.status_code == 200
@@ -41,10 +60,10 @@ async def test_youtube_transcribe():
     assert response.json()["result"] != ""
 
 @pytest.mark.asyncio
-async def test_youtube_summarize():
+async def given_url_expect_non_empty_summary():
     async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
         response = await ac.post("/youtube/summarize",
-                                 json={"url":  SHORT_YT_VIDEO, "type": "TLDR"})
+                                 json={"url": SHORT_YT_VIDEO, "type": "TLDR", "lang": "pl"})
     assert response.status_code == 200
     assert "result" in response.json()
     assert response.json()["result"] != ""

@@ -1,6 +1,28 @@
+from enum import Enum
+
 from pydantic import BaseModel
 
-class YtVideoRequest(BaseModel):
+from transcribe.utils import LANG_CODE
+
+
+class SUMMARIZATION_TYPE(str, Enum):
+    CONCISE = "concise"
+    TLDR = "tldr"
+    DETAILED = "detailed"
+
+
+class YTVideoTranscribe(BaseModel):
     url: str
-    # type is optional, default is TLDR
-    type: str = "TLDR"
+
+
+class YtVideoSummarize(BaseModel):
+    """
+    Request model for summarizing YouTube video
+
+    lang: The language of the input audio. Supplying the input language in
+              [ISO-639-1](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) format will
+              improve accuracy and latency.
+    """
+    url: str
+    type: SUMMARIZATION_TYPE = SUMMARIZATION_TYPE.TLDR
+    lang: LANG_CODE = LANG_CODE.ENGLISH

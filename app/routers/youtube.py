@@ -6,7 +6,7 @@ from models import YtVideoSummarize, YTVideoTranscribe
 from summary.utils import summarize
 from transcribe.utils import yt_transcribe
 
-router = APIRouter(prefix="/youtube", tags=["audio", "transcription", "summarization"])
+router = APIRouter(prefix="/youtube", tags=["youtube", "transcription", "summarization"])
 
 
 @router.post("/transcribe")

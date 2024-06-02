@@ -34,13 +34,14 @@ def test_audio_transcribe_invalid_file():
     # Given
     with open('resources/test_file.txt', 'rb') as f:
         invalid_file = f
-    # When
-    response = client.post("/audio/transcribe",
-                           files={"uploaded_file": invalid_file},
-                           data={"lang": "pl"})
-    # Then
-    assert "error" in response.json()
-    assert response.status_code == 400
+
+        # When
+        response = client.post("/audio/transcribe",
+                               files={"uploaded_file": invalid_file},
+                               data={"lang": "pl"})
+        # Then
+        assert "error" in response.json()
+        assert response.status_code == 400
 
 
 def given_audio_file_expect_non_empty_summary():

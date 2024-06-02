@@ -69,4 +69,5 @@ httptools~=0.6.1
 watchfiles~=0.22.0
 python-dotenv~=1.0.1
 langchain_openai~=0.1.8
+langchain_community==0.2.1
 pyee~=11.1.0

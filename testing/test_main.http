@@ -16,7 +16,8 @@ Accept: application/json
 
 {
 "url": "https://www.youtube.com/watch?v=WuciqTSbewY",
-"type": "TLDR"
+"type": "tldr",
+"lang": "pl"
 }
 
 ### long youtube video
@@ -24,8 +25,30 @@ POST http://127.0.0.1:8000/youtube/transcribe
 Accept: application/json
 
 {
-"url": "https://www.youtube.com/watch?v=M-MlGbMitqE"
+"url": "https://www.youtube.com/watch?v=jModalnvP8Q"
 }
 
 
+### AUDIO summarize short
+POST http://127.0.0.1:8000/audio/summary
+Accept: application/json
+Content-Type: multipart/form-data; boundary=boundary
 
+--boundary
+Content-Disposition: form-data; name="uploaded_file"; filename="audio_short.mp3";content-type="audio/mp3"
+
+// The 'input.txt' file will be uploaded
+< ./resources/audio_short.mp3
+
+--boundary
+Content-Disposition: form-data; name="type";
+
+// The 'input.txt' file contents will be sent as plain text.
+detailed
+
+
+--boundary
+Content-Disposition: form-data; name="lang";
+
+// The 'input.txt' file contents will be sent as plain text.
+pl

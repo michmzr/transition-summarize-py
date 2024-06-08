@@ -62,16 +62,16 @@ jobs:
         eval "$(ssh-agent -s)"
         echo "${{ secrets.SSH_PASSPHRASE }}" | ssh-add ~/.ssh/id_rsa
         ssh-add -l
+    - name: Test SSH connection
+      run: ssh -o StrictHostKeyChecking=no av-summarizer-py@${{ secrets.SSH_HOST }} "echo SSH connection successful"
+
     - name: Run commands on server
       run: |
-        ssh  -vvv -o StrictHostKeyChecking=no av-summarizer-py@${{secrets.SSH_HOST}} "echo SSH connection successful"
-        ssh  -vvv -o StrictHostKeyChecking=no  av-summarizer-py@${{secrets.SSH_HOST}} 'sh deploy.sh'
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        ssh -o StrictHostKeyChecking=no av-summarizer-py@${{ secrets.SSH_HOST }} 'bash -s' < deploy.sh
+
     - name: Health check
       run: |
         echo "Waiting for 30 seconds before healthcheck"
         sleep 30
         echo "Performing healthcheck..."
-        wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 10 https://${{secrets.APP_URL}}/health -O /dev/null
-      shell: bash
+        wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 10 https://${{ secrets.APP_URL }}/health -O /dev/null

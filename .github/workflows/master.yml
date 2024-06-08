@@ -62,10 +62,7 @@ jobs:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
     - name: Run commands on server
       run: |
-        ssh av-summarizer-py@${{secrets.SSH_HOST}} 'sudo systemctl stop av-summarizer-py.service'
-        ssh av-summarizer-py@${{secrets.SSH_HOST}} 'sudo systemctl daemon-reload'
-        ssh av-summarizer-py@${{secrets.SSH_HOST}} 'sudo systemctl start av-summarizer-py.service'
-        ssh av-summarizer-py@${{secrets.SSH_HOST}} 'systemctl status av-summarizer-py.service'
+        ssh -o StrictHostKeyChecking=no  av-summarizer-py@${{secrets.SSH_HOST}} 'sh deploy.sh'
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
     - name: Health check
@@ -73,5 +70,5 @@ jobs:
         echo "Waiting for 30 seconds before healthcheck"
         sleep 30
         echo "Performing healthcheck..."
-        wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 10 https://${{secrets.SSH_HOST}}:8080/av-summarizer-py/actuator/health -O /dev/null
+        wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 10 https://${{secrets.APP_URL}}/health -O /dev/null
       shell: bash

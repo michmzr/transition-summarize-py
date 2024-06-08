@@ -34,6 +34,8 @@ jobs:
   #          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   build:
     runs-on: ubuntu-latest
+    #    todo uncomment needs:
+    #      - tests
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3
@@ -52,17 +54,18 @@ jobs:
       with:
         push: true
         tags: ${{secrets.DOCKERHUB_USERNAME}}/av-summarizer-py:latest
-    - name: Install SSH key
+    - name: Set up SSH
       run: |
         mkdir -p ~/.ssh
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan "${{secrets.SSH_HOST}}" >> ~/.ssh/known_hosts
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        eval "$(ssh-agent -s)"
+        echo "${{ secrets.SSH_PASSPHRASE }}" | ssh-add ~/.ssh/id_rsa
+        ssh-add -l
     - name: Run commands on server
       run: |
-        ssh -o StrictHostKeyChecking=no  av-summarizer-py@${{secrets.SSH_HOST}} 'sh deploy.sh'
+        ssh  -vvv -o StrictHostKeyChecking=no av-summarizer-py@${{secrets.SSH_HOST}} "echo SSH connection successful"
+        ssh  -vvv -o StrictHostKeyChecking=no  av-summarizer-py@${{secrets.SSH_HOST}} 'sh deploy.sh'
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
     - name: Health check

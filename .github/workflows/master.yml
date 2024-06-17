@@ -25,13 +25,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -U pytest
-  #      - name: Test with pytest
-  # todo unlock
-  #        if: false
-  #        run: |
-  #          pytest
-  #        env:
-  #          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      #      - name: Test with pytest
+      #        if: false
+      #        run: |
+      #          pytest
+      #        env:
+      #          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Login to Docker Hub
@@ -62,14 +61,9 @@ jobs:
         eval "$(ssh-agent -s)"
         echo "${{ secrets.SSH_PASSPHRASE }}" | ssh-add ~/.ssh/id_rsa
         ssh-add -l
-    - name: Print SSH agent info
-      run: ssh-add -l
-    - name: Test SSH connection
-      run: ssh -o StrictHostKeyChecking=no av-summarizer-py@${{ secrets.SSH_HOST }} "echo SSH connection successful"
-    - name: Print known hosts
-      run: cat ~/.ssh/known_hosts
-    - name: Run commands on server
-      run: |
+
+        ssh -o StrictHostKeyChecking=no av-summarizer-py@${{ secrets.SSH_HOST }} "echo SSH connection successful"
+
         ssh -o StrictHostKeyChecking=no av-summarizer-py@${{ secrets.SSH_HOST }} 'bash -s' < deploy.sh
     - name: Health check
       run: |

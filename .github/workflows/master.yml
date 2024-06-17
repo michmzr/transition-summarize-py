@@ -63,7 +63,7 @@ jobs:
         echo "${{ secrets.SSH_PASSPHRASE }}" | ssh-add ~/.ssh/id_rsa
         ssh-add -l
     - name: Print SSH agent info
-      run: ssh-agent -l
+      run: ssh-add -l
     - name: Test SSH connection
       run: ssh -o StrictHostKeyChecking=no av-summarizer-py@${{ secrets.SSH_HOST }} "echo SSH connection successful"
     - name: Print known hosts

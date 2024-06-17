@@ -6,10 +6,10 @@ from models import YtVideoSummarize, YTVideoTranscribe
 from summary.utils import summarize
 from transcribe.utils import yt_transcribe
 
-router = APIRouter(prefix="/youtube", tags=["youtube", "transcription", "summarization"])
+yt_router = APIRouter(prefix="/youtube", tags=["youtube", "transcription", "summarization"])
 
 
-@router.post("/transcribe")
+@yt_router.post("/transcribe")
 def yt_transcription(request: YTVideoTranscribe):
     logging.info(f"yt transcribe - request details: {request}")
 
@@ -18,7 +18,7 @@ def yt_transcription(request: YTVideoTranscribe):
     return {"result": result}
 
 
-@router.post("/summarize")
+@yt_router.post("/summarize")
 def yt_summarize(request: YtVideoSummarize):
     logging.info(f"yt summarize - Request details: {request}")
 

@@ -1,12 +1,8 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
-
 name: Master
 
 on:
   push:
-    # todo rollback line
-    branches: [ "main", "issue-5" ]
+    branches: [ "main" ]
 
 permissions:
   contents: read
@@ -14,11 +10,10 @@ permissions:
 jobs:
   test_and_build:
     runs-on: ubuntu-latest
-    if: false
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python 3
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
           python-version: "3"
       - name: Install dependencies
@@ -26,12 +21,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -U pytest
-      #      - name: Test with pytest
-      #        if: false
-      #        run: |
-      #          pytest
-      #        env:
-      #          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      - name: Test with pytest
+        if: false
+        run: |
+          pytest
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Login to Docker Hub
@@ -46,8 +41,8 @@ jobs:
           tags: ${{secrets.DOCKERHUB_USERNAME}}/av-summarizer-py:latest
   release:
     runs-on: ubuntu-latest
-    #    todo uncomment needs:
-    #      - tests
+    needs:
+      - tests
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3
@@ -69,4 +64,4 @@ jobs:
         echo "Waiting for 30 seconds before healthcheck"
         sleep 30
         echo "Performing healthcheck..."
-        wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 10 https://${{ secrets.APP_URL }}/health -O /dev/null
+        wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 10 ${{ secrets.APP_URL }}/health -O /dev/null

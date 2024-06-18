@@ -1,0 +1,13 @@
+version: '3.3'
+
+services:
+  av-summarizer-py:
+    image: michmzr/av-summarizer-py:latest
+    container_name: av-summarizer-py
+    ports:
+      - "8086:8086"
+    volumes:
+      - /var/lib/av-summarizer-py/data:/app/data
+    restart: unless-stopped
+    environment:
+      - OPENAI_API_KEY

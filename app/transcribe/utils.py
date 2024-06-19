@@ -4,6 +4,7 @@ import random
 from enum import Enum
 from functools import lru_cache
 from typing import BinaryIO
+
 from langchain_community.document_loaders import YoutubeAudioLoader
 from langchain_community.document_loaders.generic import GenericLoader
 from langchain_community.document_loaders.parsers.audio import OpenAIWhisperParser
@@ -70,7 +71,6 @@ def transcribe(file: BinaryIO, lang: LANG_CODE):
             logging.debug(f"Processing chunk {i} to {i + ten_minutes} / {len(parts)}")
             chunk = parts[i:i + ten_minutes]
 
-            # todo as a temp file
             chunk_filename = f"downloads/{processing_id}chunk_{i}_file_.mp3"
             chunk_file = chunk.export(chunk_filename, format="mp3")
 

@@ -64,4 +64,4 @@ jobs:
         echo "Waiting for 30 seconds before healthcheck"
         sleep 30
         echo "Performing healthcheck..."
-        wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 10 ${{ secrets.APP_URL }}/health -O /dev/null
+        wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 10 --http-user=${{secrets.APP_BASIC_USERNAME}} --http-password=${{secrets.APP_BASIC_PASS}} ${{ secrets.APP_URL }}/health -O /dev/null

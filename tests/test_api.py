@@ -15,7 +15,7 @@ client = TestClient(app)
 # Given
 @pytest.fixture
 def audio_file():
-    with open('resources/audio_short.mp3', 'rb') as f:
+    with open('tests/resources/audio_short.mp3', 'rb') as f:
         yield f
 
 
@@ -32,7 +32,7 @@ def test_audio_transcribe_valid_file(audio_file):
 
 def test_audio_transcribe_invalid_file():
     # Given
-    with open('resources/test_file.txt', 'rb') as f:
+    with open('tests/resources/test_file.txt', 'rb') as f:
         invalid_file = f
 
         # When
@@ -45,7 +45,7 @@ def test_audio_transcribe_invalid_file():
 
 
 def given_audio_file_expect_non_empty_summary():
-    with open('resources/audio_short.mp3', 'rb') as f:
+    with open('tests/resources/audio_short.mp3', 'rb') as f:
         response = client.post("/audio/summary",
                                files={"uploaded_file": f},
                                data={"type": SUMMARIZATION_TYPE.TLDR, "lang": "pl"})
@@ -75,6 +75,6 @@ def teardown_module(module):
     This method is called once for each module after all tests in it are run.
     We are using it to clean up the downloads directory after tests are run.
     """
-    downloads_dir = './downloads'
+    downloads_dir = 'tests/downloads'
     if os.path.exists(downloads_dir):
         shutil.rmtree(downloads_dir)

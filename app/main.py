@@ -1,18 +1,15 @@
 import logging
 from functools import lru_cache
 
+import static_ffmpeg
 from fastapi import FastAPI
 from openai import OpenAI
-
-from routers import audio, youtube
-import static_ffmpeg
-from fastapi import FastAPI
-from routers import audio, youtube
-import static_ffmpeg
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-static_ffmpeg.add_paths()
+from routers.audio import a_router
+from routers.youtube import yt_router
 
+static_ffmpeg.add_paths()
 
 class Settings(BaseSettings):
     logging_level: int = logging.DEBUG
@@ -28,8 +25,8 @@ def get_settings():
 settings = Settings()
 
 app = FastAPI()
-app.include_router(audio.router)
-app.include_router(youtube.router)
+app.include_router(a_router)
+app.include_router(yt_router)
 
 logging.basicConfig(
     level=get_settings().logging_level,
@@ -47,3 +44,8 @@ client = OpenAI(api_key=settings.openai_api_key)
 def get_all_urls():
     url_list = [{"path": route.path, "name": route.name} for route in app.routes]
     return url_list
+
+
+@app.get("/health")
+def get_all_urls():
+    return "OK"

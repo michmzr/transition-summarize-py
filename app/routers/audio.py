@@ -1,20 +1,20 @@
 import logging
 import os
 import tempfile
-from enum import Enum
+from typing import Annotated
 
 from fastapi import UploadFile, APIRouter, Response, status, Form
-from typing import Annotated
-from summary.utils import summarize
+
 from models import SUMMARIZATION_TYPE
+from summary.utils import summarize
 from transcribe.utils import transcribe, LANG_CODE
 
 VALID_AUDIO_EXTENSIONS = ('flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm')
 
-router = APIRouter(prefix="/audio", tags=["audio", "transcription", "summarization"])
+a_router = APIRouter(prefix="/audio", tags=["audio", "transcription", "summarization"])
 
 
-@router.post("/transcribe")
+@a_router.post("/transcribe")
 def audio_trans(uploaded_file: UploadFile,
                 lang: Annotated[LANG_CODE, Form()], response: Response):
     """
@@ -42,7 +42,7 @@ def audio_trans(uploaded_file: UploadFile,
     return {"result": transcription}
 
 
-@router.post("/summary")
+@a_router.post("/summary")
 def audio_summarize(uploaded_file: UploadFile,
                     type: Annotated[SUMMARIZATION_TYPE, Form()],
                     lang: Annotated[LANG_CODE, Form()],

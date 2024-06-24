@@ -5,10 +5,11 @@ from enum import Enum
 from functools import lru_cache
 from typing import BinaryIO
 
-from langchain_community.document_loaders import YoutubeAudioLoader
 from langchain_community.document_loaders.generic import GenericLoader
 from langchain_community.document_loaders.parsers.audio import OpenAIWhisperParser
 from pydub import AudioSegment
+
+from youtube.loader import YoutubeAudioLoader
 
 
 class LANG_CODE(str, Enum):

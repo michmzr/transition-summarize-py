@@ -6,7 +6,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import app
-from models import SUMMARIZATION_TYPE
 
 BASE_URL = "http://127.0.0.1:8000/"
 SHORT_YT_VIDEO = "https://www.youtube.com/watch?v=WuciqTSbewY"
@@ -56,7 +55,7 @@ async def test_given_audio_file_expect_non_empty_summary():
         with open('tests/resources/audio_short.mp3', 'rb') as f:
             response = await ac.post("/audio/summary",
                                      files={"uploaded_file": f},
-                                     data={"type": SUMMARIZATION_TYPE.TLDR, "lang": "pl"})
+                                     data={"type": "tldr", "lang": "pl"})
 
             assert response.status_code == 200
             assert "result" in response.json()

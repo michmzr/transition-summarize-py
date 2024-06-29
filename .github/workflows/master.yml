@@ -2,7 +2,7 @@ name: Master
 
 on:
   push:
-#    branches: [ "main", "issue-5" ]
+    branches: [ "main", "issue-10" ]
 
 permissions:
   contents: read

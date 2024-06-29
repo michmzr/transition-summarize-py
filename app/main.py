@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     logging_level: int = logging.DEBUG
     openai_api_key: str
     # list of proxy servers, comma separated
-    proxy_servers: str = None
+    proxy_servers: str
     model_config = SettingsConfigDict(env_file=".env")
 
 

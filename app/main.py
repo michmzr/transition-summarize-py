@@ -14,6 +14,8 @@ static_ffmpeg.add_paths()
 class Settings(BaseSettings):
     logging_level: int = logging.DEBUG
     openai_api_key: str
+    # list of proxy servers, comma separated
+    proxy_servers: str = None
     model_config = SettingsConfigDict(env_file=".env")
 
 

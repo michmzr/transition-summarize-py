@@ -28,7 +28,10 @@ def yt_transcribe(url: str, save_dir: str):
     logging.info(f"Processing url: {url}, save_dir: {save_dir}")
 
     from main import get_settings
-    loader = GenericLoader(YoutubeAudioLoader([url], save_dir),
+
+    proxy_servers = get_settings().proxy_servers.split(",") if get_settings().proxy_servers else None
+
+    loader = GenericLoader(YoutubeAudioLoader([url], save_dir, proxy_servers),
                            OpenAIWhisperParser(api_key=get_settings().openai_api_key))
     docs = loader.load()
 

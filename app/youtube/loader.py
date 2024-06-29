@@ -1,3 +1,4 @@
+import random
 from typing import Iterable, List
 
 from langchain_community.document_loaders.blob_loaders import FileSystemBlobLoader
@@ -7,12 +8,14 @@ from langchain_community.document_loaders.blob_loaders.schema import Blob, BlobL
 class YoutubeAudioLoader(BlobLoader):
     """Load YouTube urls as audio file(s)."""
 
-    def __init__(self, urls: List[str], save_dir: str):
+    def __init__(self, urls: List[str], save_dir: str, proxy_servers: List[str] = None):
+
         if not isinstance(urls, list):
             raise TypeError("urls must be a list")
 
         self.urls = urls
         self.save_dir = save_dir
+        self.proxy_servers = proxy_servers
 
     def yield_blobs(self) -> Iterable[Blob]:
         """Yield audio blobs for each url."""
@@ -38,8 +41,11 @@ class YoutubeAudioLoader(BlobLoader):
             ],
             'netrc': True,
             'verbose': True,
-            "extractor_args": {"youtube": "player_client=ios;player_skip=webpage"}
+            "extractor_args": {"youtube": "youtube:player_skip=webpage"}
         }
+
+        if (self.proxy_servers):
+            ydl_opts["proxy"] = random.choice(self.proxy_servers)
 
         for url in self.urls:
             # Download file

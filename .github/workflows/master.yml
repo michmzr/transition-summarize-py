@@ -2,7 +2,7 @@ name: Master
 
 on:
   push:
-    branches: [ "main", "issue-10" ]
+    branches: [ "main", "issue-*" ]
 
 permissions:
   contents: read
@@ -26,6 +26,7 @@ jobs:
           pytest
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PROXY_SERVERS:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Login to Docker Hub

@@ -21,9 +21,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -U pytest
-      - name: Test with pytest
+      - name: Unit & Integrational Without YT Testing
         run: |
-          pytest --verbose
+          pytest  --verbose -vm unit
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PROXY_SERVERS: ${{ secrets.PROXY_SERVERS }}

@@ -20,7 +20,8 @@ def audio_file():
         yield f
 
 
-# When & Then
+@pytest.mark.unit
+@pytest.mark.integration_no_yt
 def test_audio_transcribe_valid_file(audio_file):
     # When
     response = client.post(
@@ -31,6 +32,9 @@ def test_audio_transcribe_valid_file(audio_file):
     assert "result" in response.json()
     assert response.status_code == 200
 
+
+@pytest.mark.unit
+@pytest.mark.integration_no_yt
 def test_audio_transcribe_invalid_file():
     # Given
     with open('tests/resources/test_file.txt', 'rb') as f:
@@ -50,6 +54,7 @@ def test_audio_transcribe_invalid_file():
 
 
 @pytest.mark.asyncio
+@pytest.mark.integration_no_yt
 async def test_given_audio_file_expect_non_empty_summary():
     async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
         with open('tests/resources/audio_short.mp3', 'rb') as f:
@@ -59,6 +64,7 @@ async def test_given_audio_file_expect_non_empty_summary():
 
             assert response.status_code == 200
             assert "result" in response.json()
+            assert "Fallout 4" in response.json()["result"]
 
 @pytest.mark.asyncio
 async def test_given_url_expect_non_empty_transcription():

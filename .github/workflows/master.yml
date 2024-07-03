@@ -58,7 +58,7 @@ jobs:
         echo "${{ secrets.SSH_PASSPHRASE }}" | ssh-add ~/.ssh/id_rsa
         ssh-add -l
 
-        ssh -o StrictHostKeyChecking=no av-summarizer-py@${{ secrets.SSH_HOST }} "echo SSH connection successful; pwd; sh ~/deploy.sh"
+        ssh -o StrictHostKeyChecking=no av-summarizer-py@${{ secrets.SSH_HOST }} "echo SSH connection successful; pwd; source ~/deploy.sh"
     - name: Health check
       run: |
         echo "Waiting for 30 seconds before healthcheck"

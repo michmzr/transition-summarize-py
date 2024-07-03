@@ -74,7 +74,7 @@ async def test_given_url_expect_non_empty_transcription():
         assert response.status_code == 200
         assert "result" in response.json()
 
-        result = response.json()["result"]
+        result = response.json()["result"][0]
         assert "liberal" in result
         assert "chains" in result
 

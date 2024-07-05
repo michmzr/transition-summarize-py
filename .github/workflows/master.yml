@@ -2,7 +2,7 @@ name: Master
 
 on:
   push:
-    branches: [ "main", "issue-5" ]
+    branches: [ "main", "issue-*" ]
 
 permissions:
   contents: read
@@ -21,11 +21,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -U pytest
-      - name: Test with pytest
+      - name: Unit & Integrational Without YT Testing
         run: |
-          pytest
+          pytest  --verbose -vm unit
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PROXY_SERVERS: ${{ secrets.PROXY_SERVERS }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Login to Docker Hub
@@ -57,7 +58,7 @@ jobs:
         echo "${{ secrets.SSH_PASSPHRASE }}" | ssh-add ~/.ssh/id_rsa
         ssh-add -l
 
-        ssh -o StrictHostKeyChecking=no av-summarizer-py@${{ secrets.SSH_HOST }} "echo SSH connection successful; pwd; sh ~/deploy.sh"
+        ssh -o StrictHostKeyChecking=no av-summarizer-py@${{ secrets.SSH_HOST }} "echo SSH connection successful; pwd; source ~/deploy.sh"
     - name: Health check
       run: |
         echo "Waiting for 30 seconds before healthcheck"

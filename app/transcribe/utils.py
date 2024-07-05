@@ -5,10 +5,11 @@ from enum import Enum
 from functools import lru_cache
 from typing import BinaryIO
 
-from langchain_community.document_loaders import YoutubeAudioLoader
 from langchain_community.document_loaders.generic import GenericLoader
 from langchain_community.document_loaders.parsers.audio import OpenAIWhisperParser
 from pydub import AudioSegment
+
+from youtube.loader import YoutubeAudioLoader
 
 
 class LANG_CODE(str, Enum):
@@ -27,7 +28,10 @@ def yt_transcribe(url: str, save_dir: str):
     logging.info(f"Processing url: {url}, save_dir: {save_dir}")
 
     from main import get_settings
-    loader = GenericLoader(YoutubeAudioLoader([url], save_dir),
+
+    proxy_servers = get_settings().proxy_servers.split(",") if get_settings().proxy_servers else None
+
+    loader = GenericLoader(YoutubeAudioLoader([url], save_dir, proxy_servers),
                            OpenAIWhisperParser(api_key=get_settings().openai_api_key))
     docs = loader.load()
 

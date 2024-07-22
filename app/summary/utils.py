@@ -4,6 +4,7 @@ from langchain.chains.llm import LLMChain
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 
+from cache import conditional_lru_cache
 from models import SUMMARIZATION_TYPE
 from transcribe.utils import LANG_CODE
 
@@ -20,6 +21,7 @@ def get_template(type):
     return templates[type]
 
 
+@conditional_lru_cache
 def summarize(text: str, type: SUMMARIZATION_TYPE, lang: LANG_CODE):
     logging.info(f"Summarizing text with type: ${type}, lang code: {lang.value}")
 
@@ -29,7 +31,7 @@ def summarize(text: str, type: SUMMARIZATION_TYPE, lang: LANG_CODE):
 
     # Define LLM chain
     from main import get_settings
-    llm = ChatOpenAI(temperature=0, model_name="gpt-4o", api_key=get_settings().openai_api_key)
+    llm = ChatOpenAI(temperature=0.1, model_name="gpt-4o", api_key=get_settings().openai_api_key)
     llm_chain = LLMChain(llm=llm, prompt=prompt)
 
     return llm_chain.run({"text": text, "lang": lang.value})

@@ -2,7 +2,7 @@ from enum import Enum
 
 from pydantic import BaseModel
 
-from transcribe.utils import LANG_CODE
+from transcribe.utils import LANG_CODE, WHISPER_RESPONSE_FORMAT
 
 
 class SUMMARIZATION_TYPE(str, Enum):
@@ -13,6 +13,8 @@ class SUMMARIZATION_TYPE(str, Enum):
 
 class YTVideoTranscribe(BaseModel):
     url: str
+    lang: LANG_CODE = LANG_CODE.ENGLISH,
+    response_format: WHISPER_RESPONSE_FORMAT = WHISPER_RESPONSE_FORMAT.SRT
 
 
 class YtVideoSummarize(BaseModel):

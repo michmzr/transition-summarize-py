@@ -104,7 +104,7 @@ def transcribe(file: BinaryIO,
         def process_chunk(i):
             logging.debug(f"Processing chunk {i} to {i + ten_minutes} / {len(parts)}")
             chunk = parts[i:i + ten_minutes]
-            chunk_filename = f"{downloads_path()}/{processing_id}chunk_{i}_file_.mp3"
+            chunk_filename = f"{downloads_path()}/{processing_id}chunk_{i}_file.mp3"
             chunk_file = chunk.export(chunk_filename, format="mp3")
             result = small_file(chunk_file, lang, response_format)
             os.remove(chunk_filename)

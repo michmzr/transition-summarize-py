@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # paths
     base_dir: str = os.path.dirname(os.path.abspath(__file__))
-    data_dir: str = os.path.join(base_dir, 'data/downloads')
+    data_dir: str = os.path.join(base_dir, '/data/downloads')
 
 
 @lru_cache

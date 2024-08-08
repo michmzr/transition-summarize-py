@@ -40,6 +40,7 @@ jobs:
         with:
           push: true
           tags: ${{secrets.DOCKERHUB_USERNAME}}/av-summarizer-py:latest
+          secret-envs: openai_api_key="api-key", proxy_servers=""
 
   release:
     runs-on: ubuntu-latest

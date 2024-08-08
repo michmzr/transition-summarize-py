@@ -40,8 +40,6 @@ jobs:
         with:
           push: true
           tags: ${{secrets.DOCKERHUB_USERNAME}}/av-summarizer-py:latest
-          build-args: |
-            DEV_MODE=dev
 
   release:
     runs-on: ubuntu-latest

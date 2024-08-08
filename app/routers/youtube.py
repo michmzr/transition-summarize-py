@@ -32,7 +32,6 @@ def yt_summarize(request: YtVideoSummarize):
                                   "./downloads/YouTube",
                                   request.lang,
                                   WHISPER_RESPONSE_FORMAT.SRT)
-    logging.debug(f"yt summarize - transcription ready")
 
     summarization = summarize(transcription, request.type, request.lang)
 

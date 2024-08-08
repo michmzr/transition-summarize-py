@@ -44,8 +44,8 @@ def convert_response_format(format: WHISPER_RESPONSE_FORMAT) -> Union[
 @conditional_lru_cache
 def yt_transcribe(url: str,
                   save_dir: str,
-                  lang: LANG_CODE = LANG_CODE.ENGLISH,
-                  response_format: WHISPER_RESPONSE_FORMAT = WHISPER_RESPONSE_FORMAT.TEXT,
+                  lang: LANG_CODE,
+                  response_format: WHISPER_RESPONSE_FORMAT
                   ):
     """
     Transcribe the videos to text
@@ -63,16 +63,13 @@ def yt_transcribe(url: str,
     loader = GenericLoader(YoutubeAudioLoader([url], save_dir, proxy_servers),
                            OpenAIWhisperParser(api_key=get_settings().openai_api_key,
                                                language=lang.value,
-                                               response_format=convert_response_format(response_format)
+                                               response_format=convert_response_format(response_format),
+                                               temperature=0
                                                ))
     docs = loader.load()
 
-    logging.info("Ready!!!")
-
     # read all docs, get page_content and concanate
-    result = [doc.page_content for doc in docs]
-
-    return result
+    return " ".join([doc.page_content for doc in docs])
 
 
 def transcribe(file: BinaryIO,
@@ -85,7 +82,7 @@ def transcribe(file: BinaryIO,
     :param lang: Lang code
     :param file: audio file
     """
-    logging.info(f"Transcribing audio file: {file}, lang: {lang}")
+    logging.info(f"Transcribing audio file: {file}, lang: {lang}, format: {response_format}")
 
     file_stats = os.stat(file.name)
     logging.debug("File stats: " + str(file_stats))

@@ -31,7 +31,7 @@ jobs:
           pipenv install --python ${{env.pythonLocation}}
       - name: Unit & integrational without YT testing
         run: |
-          pytest  --verbose -vm unit
+          pipenv run pytest  --verbose -vm unit
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PROXY_SERVERS: ${{ secrets.PROXY_SERVERS }}

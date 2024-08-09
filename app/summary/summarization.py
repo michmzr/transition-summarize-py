@@ -6,7 +6,7 @@ from langchain_openai import ChatOpenAI
 
 from cache import conditional_lru_cache
 from models import SUMMARIZATION_TYPE
-from transcribe.utils import LANG_CODE
+from transcribe.transcription import LANG_CODE
 
 
 def get_template(type):

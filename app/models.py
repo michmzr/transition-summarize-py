@@ -2,7 +2,7 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-from transcribe.utils import LANG_CODE, WHISPER_RESPONSE_FORMAT
+from transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT
 
 
 class SUMMARIZATION_TYPE(str, Enum):

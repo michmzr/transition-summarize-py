@@ -7,15 +7,15 @@ from typing import BinaryIO
 from typing import cast, Literal, Union
 
 from langchain_community.document_loaders.generic import GenericLoader
-from langchain_community.document_loaders.parsers.audio import OpenAIWhisperParser
 from pydub import AudioSegment
 
 from cache import conditional_lru_cache
+from mm_parsers.OpenAIWhisperParser import OpenAIWhisperParser
 from youtube.loader import YoutubeAudioLoader
 
 TEN_MINUTES = 10 * 60 * 1000
-
 AUDIO_SPLIT_BYTES = 24000000
+
 
 class LANG_CODE(str, Enum):
     ENGLISH = "en"
@@ -58,7 +58,10 @@ def yt_transcribe(url: str,
 
     from main import get_settings
 
-    proxy_servers = get_settings().proxy_servers.split(",") if get_settings().proxy_servers else None
+    settings = get_settings()
+    proxy_servers = get_settings().proxy_servers.split(",") if settings.proxy_servers and settings.use_proxy else None
+
+    logging.debug(f"Proxy servers: {proxy_servers} - using proxy: {settings.use_proxy}")
 
     loader = GenericLoader(YoutubeAudioLoader([url], save_dir, proxy_servers),
                            OpenAIWhisperParser(api_key=get_settings().openai_api_key,

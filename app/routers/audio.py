@@ -6,8 +6,8 @@ from typing import Annotated
 from fastapi import UploadFile, APIRouter, Response, status, Form
 
 from models import SUMMARIZATION_TYPE
-from summary.utils import summarize
-from transcribe.utils import transcribe, LANG_CODE, WHISPER_RESPONSE_FORMAT
+from summary.summarization import summarize
+from transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT, transcribe
 
 VALID_AUDIO_EXTENSIONS = ('flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm')
 

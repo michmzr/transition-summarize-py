@@ -3,8 +3,8 @@ import logging
 from fastapi import APIRouter
 
 from models import YtVideoSummarize, YTVideoTranscribe
-from summary.utils import summarize
-from transcribe.utils import yt_transcribe, WHISPER_RESPONSE_FORMAT
+from summary.summarization import summarize
+from transcribe.transcription import yt_transcribe, WHISPER_RESPONSE_FORMAT
 
 yt_router = APIRouter(prefix="/youtube", tags=["youtube", "transcription", "summarization"])
 

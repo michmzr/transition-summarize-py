@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     disable_cache: bool = False
     logging_level: int = logging.DEBUG
     openai_api_key: str
+    use_proxy: bool = True
 
     # list of proxy servers, comma separated
     proxy_servers: str

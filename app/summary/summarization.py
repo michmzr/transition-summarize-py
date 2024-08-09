@@ -25,7 +25,7 @@ def get_template(type):
             
             Include extra information such as:
             - list of mentioned articles, books, podcasts,persons, movies etc. in seperated subsections. If empty, just skip it
-            - list of guidelines, practises,techniques,rules, steps, procedures etc. in seperated subsections. If empty, just skip it
+            - list of guidelines, practises,techniques, rules, principles, steps, procedures etc. in seperated subsections. If empty, just skip it
             - list of examples, scenarios, use cases, case studies etc. in seperated subsections. If empty, just skip it
             - list of tools, software, hardware, services, products etc. in seperated subsections. If empty, just skip it
             

@@ -15,7 +15,7 @@ jobs:
       - name: Set up Python 3
         uses: actions/setup-python@v5
         with:
-          python-version: "3"
+          python-version: "3.12"
       - name: Install pipenv
         run: |
           python -m pip install --upgrade pip
@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies
         if: steps.cache-pipenv.outputs.cache-hit != 'true'
         run: |
-          pipenv install --python ${{env.pythonLocation}}
+          pipenv install --deploy --ignore-pipfile
       - name: Unit & integrational without YT testing
         run: |
           pipenv run pytest  --verbose -vm unit

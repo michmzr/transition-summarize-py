@@ -49,7 +49,7 @@ def summarize(text: str, type: SUMMARIZATION_TYPE, lang: LANG_CODE):
 
     # Define LLM chain
     from main import get_settings
-    llm = ChatOpenAI(temperature=0.1, model_name="gpt-4o", api_key=get_settings().openai_api_key)
+    llm = ChatOpenAI(temperature=0.1, model_name="gpt-4o-mini", api_key=get_settings().openai_api_key)
     llm_chain = LLMChain(llm=llm, prompt=prompt)
 
     return llm_chain.run({"text": text, "lang": lang.value})

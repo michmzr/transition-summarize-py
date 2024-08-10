@@ -1,28 +1,14 @@
 import logging
-from functools import lru_cache
 
 import static_ffmpeg
 from fastapi import FastAPI
 from openai import OpenAI
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from routers.audio import a_router
 from routers.youtube import yt_router
+from settings import Settings, get_settings
 
 static_ffmpeg.add_paths()
-
-class Settings(BaseSettings):
-    logging_level: int = logging.DEBUG
-    openai_api_key: str
-    # list of proxy servers, comma separated
-    proxy_servers: str
-    model_config = SettingsConfigDict(env_file=".env")
-
-
-@lru_cache
-def get_settings():
-    return Settings()
-
 
 settings = Settings()
 
@@ -40,7 +26,6 @@ logging.basicConfig(
 )
 
 client = OpenAI(api_key=settings.openai_api_key)
-
 
 @app.get("/url-list")
 def get_all_urls():

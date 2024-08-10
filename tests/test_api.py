@@ -69,12 +69,12 @@ async def test_given_audio_file_expect_non_empty_summary():
 @pytest.mark.asyncio
 async def test_given_url_expect_non_empty_transcription():
     async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
-        response = await ac.post("/youtube/transcribe", json={"url": SHORT_YT_VIDEO})
+        response = await ac.post("/youtube/transcribe", json={"url": SHORT_YT_VIDEO, "lang": "pl"})
 
         assert response.status_code == 200
         assert "result" in response.json()
 
-        result = response.json()["result"][0]
+        result = response.json()["result"]
         assert "liberal" in result
         assert "chains" in result
 

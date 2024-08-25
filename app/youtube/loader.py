@@ -1,3 +1,4 @@
+import logging
 import random
 from typing import Iterable, List
 
@@ -16,6 +17,10 @@ class YoutubeAudioLoader(BlobLoader):
         self.urls = urls
         self.save_dir = save_dir
         self.proxy_servers = proxy_servers
+
+    def random_proxy(self):
+        return random.choice(self.proxy_servers)
+
 
     def yield_blobs(self) -> Iterable[Blob]:
         """Yield audio blobs for each url."""
@@ -44,13 +49,33 @@ class YoutubeAudioLoader(BlobLoader):
             "extractor_args": {"youtube": "youtube:player_skip=webpage"}
         }
 
-        if (self.proxy_servers):
-            ydl_opts["proxy"] = random.choice(self.proxy_servers)
+        trial = 1
+        max_trials = 3
 
-        for url in self.urls:
-            # Download file
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download(url)
+        def contains_keywords(exception: Exception, keywords: list) -> bool:
+            return any(keyword in str(exception).lower() for keyword in keywords)
+
+        while trial < max_trials:
+            if (self.proxy_servers):
+                ydl_opts["proxy"] = self.random_proxy()
+
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download(self.urls)
+
+                break
+            except Exception as e:
+                logging.warning(f"Cached exception: {e}, trying to download again (trial: {trial}/{max_trials})")
+
+                # Retry if exception message contains sign in error message
+                keywords = ["sign in", "login", "login_required", "bot", "429"]
+                if contains_keywords(e, keywords):
+                    trial += 1
+                    if trial == max_trials:
+                        raise e
+                else:
+                    logging.debug("Exception does not contain keywords, raising exception higher")
+                    raise e
 
         # Yield the written blobs
         loader = FileSystemBlobLoader(self.save_dir, glob="*.m4a")

@@ -10,7 +10,7 @@ from langchain_community.document_loaders.generic import GenericLoader
 from pydub import AudioSegment
 
 from cache import conditional_lru_cache
-from mm_parsers.OpenAIWhisperParser import OpenAIWhisperParser
+from transcribe.OpenAIWhisperParser import OpenAIWhisperParser
 from youtube.loader import YoutubeAudioLoader
 
 TEN_MINUTES = 10 * 60 * 1000

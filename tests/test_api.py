@@ -29,7 +29,8 @@ def test_audio_transcribe_valid_file(audio_file):
         files={"uploaded_file": audio_file},
         data={"lang": "pl"})
     # Then
-    assert "result" in response.json()
+    assert "transcription" in response.json()
+    assert "format" in response.json()
     assert response.status_code == 200
 
 
@@ -63,18 +64,18 @@ async def test_given_audio_file_expect_non_empty_summary():
                                      data={"type": "tldr", "lang": "pl"})
 
             assert response.status_code == 200
-            assert "result" in response.json()
-            assert "Fallout 4" in response.json()["result"]
+            assert "summary" in response.json()
+            assert "Fallout 4" in response.json()["summary"]
 
 @pytest.mark.asyncio
 async def test_given_url_expect_non_empty_transcription():
     async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
-        response = await ac.post("/youtube/transcribe", json={"url": SHORT_YT_VIDEO, "lang": "pl"})
+        response = await ac.post("/youtube/transcribe", json={"url": SHORT_YT_VIDEO, "lang": "en"})
 
         assert response.status_code == 200
-        assert "result" in response.json()
+        assert "transcription" in response.json()
 
-        result = response.json()["result"]
+        result = response.json()["transcription"]
         assert "liberal" in result
         assert "chains" in result
 
@@ -84,8 +85,8 @@ async def test_given_url_expect_non_empty_summary():
         response = await ac.post("/youtube/summarize",
                                  json={"url": SHORT_YT_VIDEO, "type": "tldr", "lang": "pl"})
         assert response.status_code == 200
-        assert "result" in response.json()
-        assert response.json()["result"] != ""
+        assert "summary" in response.json()
+        assert response.json()["summary"] != ""
 
 
 def teardown_module(module):

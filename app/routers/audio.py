@@ -3,9 +3,10 @@ import os
 import tempfile
 from typing import Annotated
 
-from fastapi import UploadFile, APIRouter, Response, status, Form
+from fastapi import UploadFile, APIRouter, Response, status, Form, Request
+from starlette.responses import PlainTextResponse
 
-from models import SUMMARIZATION_TYPE
+from models import SUMMARIZATION_TYPE, SummaryResult, TranscriptionResult
 from summary.summarization import summarize
 from transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT, transcribe
 
@@ -14,20 +15,30 @@ VALID_AUDIO_EXTENSIONS = ('flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'o
 a_router = APIRouter(prefix="/audio", tags=["audio", "transcription", "summarization"])
 
 
-@a_router.post("/transcribe")
+@a_router.post("/transcribe", response_model=TranscriptionResult)
 def audio_trans(uploaded_file: UploadFile,
                 lang: Annotated[LANG_CODE, Form()],
+                request: Request,
                 response: Response,
-                transcription_response_format: Annotated[WHISPER_RESPONSE_FORMAT, Form()] = WHISPER_RESPONSE_FORMAT.SRT
-                ):
+                transcription_response_format: Annotated[
+                    WHISPER_RESPONSE_FORMAT, Form()] = WHISPER_RESPONSE_FORMAT.SRT):
     """
-    request accepts audio file in request multi-part and transcribes it to text
-    :param transcription_response_format: whisper response format: srt,txt,json,vtt,verbose_json
-    :param lang:  The language of the input audio. Supplying the input language in
-              [ISO-639-1](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) format will
-              improve accuracy and latency.
-    :param uploaded_file: audio file
-    :return: result field: transcription text
+    Transcribe an uploaded audio file to text.
+
+    Parameters:
+    - uploaded_file (UploadFile): The audio file to be transcribed.
+    - lang (LANG_CODE): The language of the input audio in ISO-639-1 format.
+    - transcription_response_format (WHISPER_RESPONSE_FORMAT): The desired format of the transcription response (default: SRT).
+
+    Returns:
+    - TranscriptionResult: The transcription result, including the transcribed text and format.
+
+    Raises:
+    - HTTPException 400: If the uploaded file is not a valid audio file.
+
+    Description:
+    This endpoint accepts an audio file via multipart form-data, transcribes it to text, and returns the result.
+    The transcription can be returned as plain text or JSON based on the Accept header in the request.
     """
     logging.info(f"audio transcribe api - file name: {uploaded_file.filename}, "
                  f" content_type: {uploaded_file.content_type}, transcription response format: ${transcription_response_format}")
@@ -44,21 +55,39 @@ def audio_trans(uploaded_file: UploadFile,
 
     logging.info("Completed processing audio file. Returning transcription.")
 
-    return {"result": transcription}
+    # Get the Accept header from the request
+    accept_header = request.headers.get("Accept", "application/json")
+
+    # If the Accept header is "text/plain", return plain text
+    if accept_header == "text/plain":
+        return PlainTextResponse(transcription)
+    else:
+        return TranscriptionResult(transcription=transcription, format=transcription_response_format)
 
 
-@a_router.post("/summary")
+@a_router.post("/summary", response_model=SummaryResult)
 def audio_summarize(uploaded_file: UploadFile,
                     type: Annotated[SUMMARIZATION_TYPE, Form()],
                     lang: Annotated[LANG_CODE, Form()],
+                    request: Request,
                     response: Response):
     """
-    request accepts audio file in request and summarizes it
-    :param uploaded_file:
-    :param type: Summary type
-    :param lang: language ISO type
-    :param response:
-    :return:
+    Summarize an uploaded audio file.
+
+    Parameters:
+    - uploaded_file (UploadFile): The audio file to be summarized.
+    - type (SUMMARIZATION_TYPE): The type of summary to generate.
+    - lang (LANG_CODE): The language of the input audio and desired summary in ISO-639-1 format.
+
+    Returns:
+    - SummaryResult: The generated summary of the audio content.
+
+    Raises:
+    - HTTPException 400: If the uploaded file is not a valid audio file.
+
+    Description:
+    This endpoint accepts an audio file via multipart form-data, transcribes it, and then generates a summary of the content.
+    The summary can be returned as plain text or JSON based on the Accept header in the request.
     """
     logging.info(f"audio summarizing api - {uploaded_file}, type: {type.name}")
 
@@ -74,8 +103,14 @@ def audio_summarize(uploaded_file: UploadFile,
     transcription = transcribe_uploaded_file(uploaded_file, lang, WHISPER_RESPONSE_FORMAT.SRT)
     summary = summarize(transcription, type, lang)
 
-    logging.info("Completed processing audio file. Returning transcription.")
-    return {"result": summary}
+    logging.info("Completed processing audio file. Returning summary.")
+
+    accept_header = request.headers.get("Accept", "application/json")
+    # If the Accept header is "text/plain", return plain text
+    if accept_header == "text/plain":
+        return PlainTextResponse(summary)
+    else:
+        return SummaryResult(summary=summary)
 
 
 def transcribe_uploaded_file(uploaded_file: UploadFile,

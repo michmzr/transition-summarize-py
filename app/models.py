@@ -1,4 +1,6 @@
+from datetime import datetime
 from enum import Enum
+from typing import Optional, List
 
 from pydantic import BaseModel, Field
 
@@ -29,6 +31,29 @@ class YTVideoTranscribe(BaseModel):
     }
 
 
+class TranscriptionResult(BaseModel):
+    transcription: str = Field(title="Video transcription")
+    format: str = Field(title="Transcription format")
+
+
+class YtVideoInfoRequest(BaseModel):
+    """
+    Request model for acquiring youtube video details like title, description, list of subtitles
+    """
+
+    url: str
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "url": "https://www.youtube.com/shorts/tvPMT89eJWo",
+                }
+            ]
+        }
+    }
+
+
 class YtVideoSummarize(BaseModel):
     """
     Request model for summarizing YouTube video
@@ -53,3 +78,32 @@ class YtVideoSummarize(BaseModel):
             ]
         }
     }
+
+
+class SummaryResult(BaseModel):
+    summary: str
+
+
+class YoutubeTranscriptionMetadata(BaseModel):
+    ext: str = Field(..., description="File extension of the transcription")
+    url: str = Field(..., description="URL to access the transcription")
+    name: str = Field(..., description="Name or language of the transcription")
+
+
+class YoutubeMetadata(BaseModel):
+    title: str = Field(default="", description="The title of the YouTube video")
+    full_title: Optional[str] = Field(None,
+                                      description="The full title of the YouTube video, which may include additional information")
+    filesize: Optional[int] = Field(None, description="The size of the video file in bytes")
+    duration: Optional[float] = Field(None, description="The duration of the video in seconds")
+    duration_string: Optional[str] = Field(None,
+                                           description="A human-readable string representation of the video duration")
+    description: str = Field(default="", description="The description of the YouTube video")
+    channel_url: Optional[str] = Field(None, description="The URL of the YouTube channel that uploaded the video")
+    language: Optional[str] = Field(None, description="The primary language of the video content")
+    subtitles: dict[str, dict[str, YoutubeTranscriptionMetadata]] = Field(default_factory=dict,
+                                                                          description="A dictionary of available subtitles, organized by language code and file extension")
+    available_transcriptions: List[str] = Field(default_factory=list,
+                                                description="A list of available transcription languages")
+    upload_date: Optional[datetime] = Field(None, description="The date and time when the video was uploaded")
+    thumbnail: Optional[str] = Field(None, description="The URL of the video thumbnail image")

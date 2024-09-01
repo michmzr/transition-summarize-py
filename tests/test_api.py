@@ -45,13 +45,11 @@ def test_audio_transcribe_invalid_file():
         response = client.post("/audio/transcribe",
                                files={"uploaded_file": invalid_file},
                                data={"lang": "pl"})
+
         # Then
         assert response.status_code == 400
-
         assert "error" in response.json()
-
-        error = response.json()["error"]
-        assert "Only audio files are accepted" in error
+        assert "Invalid file type. Only audio files are accepted" in response.json()["error"]
 
 
 @pytest.mark.asyncio

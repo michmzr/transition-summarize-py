@@ -32,8 +32,10 @@ class YTVideoTranscribe(BaseModel):
 
 
 class TranscriptionResult(BaseModel):
-    transcription: str = Field(title="Video transcription")
-    format: str = Field(title="Transcription format")
+    result: bool = Field(title="Success or error")
+    error: Optional[str] = Field(title="Error description")
+    transcription: Optional[str] = Field(title="Video transcription")
+    format: Optional[str] = Field(title="Transcription format")
 
 
 class YtVideoInfoRequest(BaseModel):

@@ -45,11 +45,20 @@ def audio_trans(uploaded_file: UploadFile,
 
     if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video"):
         response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"error": "Invalid file type. Only audio files are accepted"}
+        return TranscriptionResult(
+            result=False,
+            error="Invalid file type. Only audio files are accepted",
+            transcription=None,
+            format=None
+        )
 
     if not uploaded_file.filename.endswith(VALID_AUDIO_EXTENSIONS):
         response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"error": f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted"}
+        return TranscriptionResult(result=False,
+                                   error=f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted",
+                                   transcription=None,
+                                   format=None
+                                   )
 
     transcription = transcribe_uploaded_file(uploaded_file, lang, transcription_response_format)
 
@@ -62,7 +71,7 @@ def audio_trans(uploaded_file: UploadFile,
     if accept_header == "text/plain":
         return PlainTextResponse(transcription)
     else:
-        return TranscriptionResult(transcription=transcription, format=transcription_response_format)
+        return TranscriptionResult(result=True, transcription=transcription, format=transcription_response_format)
 
 
 @a_router.post("/summary", response_model=SummaryResult)

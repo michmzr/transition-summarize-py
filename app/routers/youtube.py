@@ -48,7 +48,7 @@ def yt_transcription(request: Request, yt_request: YTVideoTranscribe):
     if accept_header == "text/plain":
         return PlainTextResponse(result)
     else:
-        return TranscriptionResult(transcription=result, format=yt_request.response_format)
+        return TranscriptionResult(result=True, transcription=result, format=yt_request.response_format)
 
 
 def save_dir_path(url):

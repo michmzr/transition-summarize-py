@@ -71,7 +71,8 @@ def audio_trans(uploaded_file: UploadFile,
     if accept_header == "text/plain":
         return PlainTextResponse(transcription)
     else:
-        return TranscriptionResult(result=True, transcription=transcription, format=transcription_response_format)
+        return TranscriptionResult(result=True, error=None, transcription=transcription,
+                                   format=transcription_response_format)
 
 
 @a_router.post("/summary", response_model=SummaryResult)

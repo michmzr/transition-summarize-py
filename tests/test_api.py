@@ -29,9 +29,12 @@ def test_audio_transcribe_valid_file(audio_file):
         files={"uploaded_file": audio_file},
         data={"lang": "pl"})
     # Then
-    assert "transcription" in response.json()
-    assert "format" in response.json()
+    json = response.json()
     assert response.status_code == 200
+    assert json["result"]
+
+    assert "transcription" in json
+    assert "format" in json
 
 
 @pytest.mark.unit
@@ -47,9 +50,12 @@ def test_audio_transcribe_invalid_file():
                                data={"lang": "pl"})
 
         # Then
+        json = response.json()
+
         assert response.status_code == 400
-        assert "error" in response.json()
-        assert "Invalid file type. Only audio files are accepted" in response.json()["error"]
+        assert "error" in json
+        assert json["result"] == False
+        assert "Invalid file type. Only audio files are accepted" in json["error"]
 
 
 @pytest.mark.asyncio
@@ -65,6 +71,7 @@ async def test_given_audio_file_expect_non_empty_summary():
             assert "summary" in response.json()
             assert "Fallout 4" in response.json()["summary"]
 
+
 @pytest.mark.asyncio
 async def test_given_url_expect_non_empty_transcription():
     async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
@@ -76,6 +83,7 @@ async def test_given_url_expect_non_empty_transcription():
         result = response.json()["transcription"]
         assert "liberal" in result
         assert "chains" in result
+
 
 @pytest.mark.asyncio
 async def test_given_url_expect_non_empty_summary():

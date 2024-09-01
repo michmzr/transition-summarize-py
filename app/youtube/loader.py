@@ -59,13 +59,15 @@ class YoutubeAudioLoader(BlobLoader):
             if (self.proxy_servers):
                 ydl_opts["proxy"] = self.random_proxy()
 
+            retcode = None
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download(self.urls)
+                    retcode = ydl.download(self.urls)
 
                 break
             except Exception as e:
-                logging.warning(f"Cached exception: {e}, trying to download again (trial: {trial}/{max_trials})")
+                logging.warning(
+                    f"Got exception: {e} code={retcode}, trying to download again (trial: {trial}/{max_trials})")
 
                 # Retry if exception message contains sign in error message
                 keywords = ["sign in", "login", "login_required", "bot", "429"]

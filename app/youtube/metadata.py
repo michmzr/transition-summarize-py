@@ -17,10 +17,16 @@ def get_youtube_metadata(video_url: str):
             sub_lang_versions = {}
 
             for subtitle_version in video_all_subtitles[lang_code]:
+                name = ""
+                if hasattr(subtitle_version, "name"):
+                    name = subtitle_version["name"]
+                else:
+                    name = subtitle_version.get("protocol", "N/A")
+
                 sub_lang_versions[subtitle_version["ext"]] = YoutubeTranscriptionMetadata(
                     ext=subtitle_version["ext"],
-                    url=subtitle_version["name"],
-                    name=subtitle_version["url"]
+                    url=subtitle_version["url"],
+                    name=name
                 )
 
             subtitles_metadata[lang_code] = sub_lang_versions

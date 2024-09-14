@@ -5,7 +5,7 @@ from youtube.metadata import get_youtube_metadata
 
 class YTMetadata(unittest.TestCase):
     def test_get_video_metadata(self):
-        video_url = 'https://www.youtube.com/watch?v=MzzOKh6gbGg'
+        video_url = 'https://www.youtube.com/watch?v=Rg35oYuus-w'
         metadata = get_youtube_metadata(video_url)
 
         print(metadata)

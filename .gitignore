@@ -246,3 +246,11 @@ cython_debug/
 .venv
 
 .env
+/.idea/.gitignore
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/dataSources.xml
+/.idea/misc.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/modules.xml
+/.idea/transition-summarize-py.iml
+/.idea/vcs.xml

@@ -4,9 +4,12 @@ import static_ffmpeg
 from fastapi import FastAPI
 from openai import OpenAI
 
+import database
+from app.settings import Settings, get_settings
 from routers.audio import a_router
+from routers.auth import auth_router
 from routers.youtube import yt_router
-from settings import Settings, get_settings
+from schema import models
 
 static_ffmpeg.add_paths()
 
@@ -15,6 +18,8 @@ settings = Settings()
 app = FastAPI()
 app.include_router(a_router)
 app.include_router(yt_router)
+app.include_router(auth_router)
+
 
 logging.basicConfig(
     level=get_settings().logging_level,
@@ -24,6 +29,10 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+# Create tables
+models.Base.metadata.create_all(bind=database.engine)
+
 
 client = OpenAI(api_key=settings.openai_api_key)
 

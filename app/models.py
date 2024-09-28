@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 
 from transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT
 
@@ -109,3 +109,29 @@ class YoutubeMetadata(BaseModel):
                                                 description="A list of available transcription languages")
     upload_date: Optional[datetime] = Field(None, description="The date and time when the video was uploaded")
     thumbnail: Optional[str] = Field(None, description="The URL of the video thumbnail image")
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class TokenData(BaseModel):
+    username: str | None = None
+
+
+class UserBase(BaseModel):
+    username: str
+    email: EmailStr | None = None
+
+
+class UserCreate(UserBase):
+    password: str
+
+
+class User(UserBase):
+    id: int
+    is_active: bool
+
+    class Config:
+        from_attributes = True

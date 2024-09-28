@@ -2,7 +2,7 @@ name: Master
 
 on:
   push:
-    branches: [ "main", "issue-*" ]
+    branches: [ "main" ]
 
 permissions:
   contents: read
@@ -31,6 +31,9 @@ jobs:
         if: steps.cache-pipenv.outputs.cache-hit != 'true'
         run: |
           pipenv install --python "${{ steps.setup-python.outputs.python-path }}"
+      - name: Run migrations
+        run: |
+          pipenv run alembic upgrade head
 
       - name: Unit & integrational without YT testing
         run: |

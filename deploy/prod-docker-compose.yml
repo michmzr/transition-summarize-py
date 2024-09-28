@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  av-summarizer-py:
+    image: michmzr/av-summarizer-py:latest
+    container_name: av-summarizer-py
+    ports:
+      - "8086:8086"
+    volumes:
+      - /var/lib/av-summarizer-py/data:/data/downloads
+    environment:
+      - OPENAI_API_KEY
+      - PROXY_SERVERS
+      - DATABASE_URL=postgresql://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@localhost:5432/${DATABASE_NAME}
+
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:17
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DATABASE_DB}
+      - POSTGRES_USER=${DATABASE_USER}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:

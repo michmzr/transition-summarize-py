@@ -1,0 +1,43 @@
+name: Master
+
+on:
+  push:
+    branches: [ "issue-*"]
+
+permissions:
+  contents: read
+
+jobs:
+  test_and_build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3"
+      - name: Install pipenv
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pipenv
+      - uses: actions/cache@v1
+        id: cache-pipenv
+        with:
+          path: ~/.local/share/virtualenvs
+          key: ${{ runner.os }}-pipenv-${{ hashFiles('**/Pipfile.lock') }}
+
+      - name: Install dependencies
+        if: steps.cache-pipenv.outputs.cache-hit != 'true'
+        run: |
+          pipenv install --python "${{ steps.setup-python.outputs.python-path }}"
+      - name: Run migrations
+        run: |
+          pipenv run alembic upgrade head
+
+      - name: Unit & integrational without YT testing
+        run: |
+          pipenv run pytest  --verbose -vm unit
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PROXY_SERVERS: ${{ secrets.PROXY_SERVERS }}

@@ -1,11 +1,14 @@
 from datetime import datetime, timedelta, UTC
 from typing import Optional
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from . import models, database
+
+import database
+from schema import models
 from .settings import get_settings
 
 settings = get_settings()

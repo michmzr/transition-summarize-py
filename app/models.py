@@ -125,8 +125,21 @@ class UserBase(BaseModel):
     email: EmailStr | None = None
 
 
-class UserCreate(UserBase):
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
     password: str
+
+
+class UserInDB(BaseModel):
+    id: int
+    username: str
+    email: EmailStr
+    hashed_password: str
+    is_active: bool = True
+
+    class Config:
+        from_attributes = True
 
 
 class User(UserBase):

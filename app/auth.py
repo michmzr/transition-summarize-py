@@ -9,12 +9,12 @@ from sqlalchemy.orm import Session
 
 from app import database
 from app.schema.models import UserDB
-from app.schema.pydantic_models import User
+from app.schema.pydantic_models import User, TokenData
 from app.settings import get_settings
 
 settings = get_settings()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password, hashed_password):
@@ -55,13 +55,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
+        token_data = TokenData(username=username)
     except JWTError:
         raise credentials_exception
-    user = get_user(db, username=username)
+    user = get_user(db, username=token_data.username)
     if user is None:
         raise credentials_exception
     return User.from_orm(user)
-
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)):
     if not current_user.is_active:

@@ -7,9 +7,10 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-import database
-from schema import models
-from .settings import get_settings
+from app import database
+from app.schema.models import UserDB
+from app.schema.pydantic_models import User
+from app.settings import get_settings
 
 settings = get_settings()
 
@@ -23,7 +24,7 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 def get_user(db: Session, username: str):
-    return db.query(models.User).filter(models.User.username == username).first()
+    return db.query(UserDB).filter(UserDB.username == username).first()
 
 def authenticate_user(db: Session, username: str, password: str):
     user = get_user(db, username)
@@ -59,9 +60,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     user = get_user(db, username=username)
     if user is None:
         raise credentials_exception
-    return user
+    return User.from_orm(user)
 
-async def get_current_active_user(current_user: models.User = Depends(get_current_user)):
+
+async def get_current_active_user(current_user: User = Depends(get_current_user)):
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user

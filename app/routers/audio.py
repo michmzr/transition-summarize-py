@@ -6,9 +6,9 @@ from typing import Annotated
 from fastapi import UploadFile, APIRouter, Response, status, Form, Request
 from starlette.responses import PlainTextResponse
 
-from models import SUMMARIZATION_TYPE, SummaryResult, TranscriptionResult
-from summary.summarization import summarize
-from transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT, transcribe
+from app.models import SUMMARIZATION_TYPE, SummaryResult, TranscriptionResult
+from app.summary.summarization import summarize
+from app.transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT, transcribe
 
 VALID_AUDIO_EXTENSIONS = ('flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm')
 

@@ -4,12 +4,12 @@ import static_ffmpeg
 from fastapi import FastAPI
 from openai import OpenAI
 
-import database
+from app import database
+from app.routers.audio import a_router
+from app.routers.auth import auth_router
+from app.routers.youtube import yt_router
+from app.schema import models
 from app.settings import Settings, get_settings
-from routers.audio import a_router
-from routers.auth import auth_router
-from routers.youtube import yt_router
-from schema import models
 
 static_ffmpeg.add_paths()
 

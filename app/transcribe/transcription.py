@@ -9,9 +9,9 @@ from typing import cast, Literal, Union
 from langchain_community.document_loaders.generic import GenericLoader
 from pydub import AudioSegment
 
-from cache import conditional_lru_cache
-from transcribe.OpenAIWhisperParser import OpenAIWhisperParser
-from youtube.loader import YoutubeAudioLoader
+from app.cache import conditional_lru_cache
+from app.transcribe.OpenAIWhisperParser import OpenAIWhisperParser
+from app.youtube.loader import YoutubeAudioLoader
 
 TEN_MINUTES = 10 * 60 * 1000
 AUDIO_SPLIT_BYTES = 24000000

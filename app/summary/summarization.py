@@ -4,9 +4,9 @@ from langchain.chains.llm import LLMChain
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 
-from cache import conditional_lru_cache
-from models import SUMMARIZATION_TYPE
-from transcribe.transcription import LANG_CODE
+from app.cache import conditional_lru_cache
+from app.models import SUMMARIZATION_TYPE
+from app.transcribe.transcription import LANG_CODE
 
 
 def get_template(type):

@@ -1,12 +1,14 @@
 import logging
+import uuid
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app import models, database, auth
-from app.models import Token, User, UserCreate, UserInDB
+from app import database, auth
+from app.schema.models import UserDB
+from app.schema.pydantic_models import User, UserCreate, Token
 from app.settings import get_settings
 
 settings = get_settings()
@@ -32,20 +34,27 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@auth_router.post("/register", response_model=UserInDB)
+@auth_router.post("/register", response_model=User)
 def register_user(user: UserCreate, db: Session = Depends(database.get_db)):
     logging.info(f"Registering user {user.username} {user.email}")
+
     db_user = auth.get_user(db, username=user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
+
     hashed_password = auth.get_password_hash(user.password)
-    db_user = models.User(username=user.username, email=user.email, hashed_password=hashed_password)
+    db_user = UserDB(
+        id=uuid.uuid4(),
+        username=user.username,
+        email=user.email,
+        hashed_password=hashed_password,
+        is_active=True
+    )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    logging.info(f"User {user.username} registered {db_user.id}")
-    return UserInDB.from_orm(db_user)
+    return User.from_orm(db_user)
 
 @auth_router.get("/users/me/", response_model=User)
-async def read_users_me(current_user: models.User = Depends(auth.get_current_active_user)):
+async def read_users_me(current_user: User = Depends(auth.get_current_active_user)):
     return current_user

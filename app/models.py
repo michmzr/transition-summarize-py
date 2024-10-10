@@ -2,9 +2,9 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, List
 
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import UUID4, BaseModel, Field, EmailStr
 
-from transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT
+from app.transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT
 
 
 class SUMMARIZATION_TYPE(str, Enum):
@@ -132,7 +132,7 @@ class UserCreate(BaseModel):
 
 
 class UserInDB(BaseModel):
-    id: int
+    id: UUID4
     username: str
     email: EmailStr
     hashed_password: str
@@ -143,7 +143,7 @@ class UserInDB(BaseModel):
 
 
 class User(UserBase):
-    id: int
+    id: UUID4
     is_active: bool
 
     class Config:

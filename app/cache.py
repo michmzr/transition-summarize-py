@@ -1,6 +1,6 @@
 from functools import lru_cache, wraps
 
-from settings import get_settings
+from app.settings import get_settings
 
 
 def conditional_lru_cache(func):

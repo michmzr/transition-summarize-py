@@ -4,11 +4,11 @@ import logging
 from fastapi import APIRouter, Request
 from starlette.responses import PlainTextResponse
 
-from models import YtVideoSummarize, YTVideoTranscribe, YtVideoInfoRequest, YoutubeMetadata, SummaryResult, \
+from app.models import YtVideoSummarize, YTVideoTranscribe, YtVideoInfoRequest, YoutubeMetadata, SummaryResult, \
     TranscriptionResult
-from summary.summarization import summarize
-from transcribe.transcription import yt_transcribe, WHISPER_RESPONSE_FORMAT
-from youtube.metadata import get_youtube_metadata
+from app.summary.summarization import summarize
+from app.transcribe.transcription import yt_transcribe, WHISPER_RESPONSE_FORMAT
+from app.youtube.metadata import get_youtube_metadata
 
 yt_router = APIRouter(prefix="/youtube", tags=["youtube", "transcription", "summarization"])
 

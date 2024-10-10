@@ -2,8 +2,8 @@ import random
 
 import yt_dlp
 
-from models import YoutubeTranscriptionMetadata, YoutubeMetadata
-from youtube.helpers import proxy_servers
+from app.models import YoutubeTranscriptionMetadata, YoutubeMetadata
+from app.youtube.helpers import proxy_servers
 
 
 def get_youtube_metadata(video_url: str):

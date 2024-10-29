@@ -143,8 +143,8 @@ def small_file(file: BinaryIO,
     logging.info(
         f"Transcribing audio file using openai api: {file}, with lang: {lang}, response_format: {response_format}")
 
-    from main import client
-    transcription = client.audio.transcriptions.create(
+    from app.settings import client_openai
+    transcription = client_openai.audio.transcriptions.create(
         model="whisper-1",
         file=file,
         language=lang.value,

@@ -2,6 +2,7 @@ import logging
 import os
 from functools import lru_cache
 
+from openai import OpenAI
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,7 +35,16 @@ class Settings(BaseSettings):
     # Environment
     is_local: bool = False
 
+    # Langchain settings
+    langchain_tracing_v2: bool
+    langchain_endpoint: str
+    langchain_project: str
+    langchain_api_key: str
 
 @lru_cache
 def get_settings():
     return Settings()
+
+
+# AI Clients
+client_openai = OpenAI(api_key=get_settings().openai_api_key)

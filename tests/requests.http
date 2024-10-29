@@ -1,18 +1,28 @@
 # Test your FastAPI endpoints
 
-### short youtube video
+### Login to get token
+POST http://127.0.0.1:8000/auth/token
+Content-Type: application/x-www-form-urlencoded
 
-POST http://127.0.0.1:8000/youtube/transcribe
+username = your_username &
+password = your_password
+
+### Use the token from the login response in subsequent requests
+@authToken = your_token_here
+
+### short youtube video
+POST http://127.0.0.1:8000/api/youtube/transcribe
 Accept: application/json
+Authorization: Bearer {{authToken}}
 
 {
 "url": "https://www.youtube.com/watch?v=WuciqTSbewY"
 }
 
 ### short yt summarize
-
-POST http://127.0.0.1:8000/youtube/summarize
+POST http://127.0.0.1:8000/api/youtube/summarize
 Accept: application/json
+Authorization: Bearer {{authToken}}
 
 {
 "url": "https://www.youtube.com/watch?v=WuciqTSbewY",
@@ -21,34 +31,29 @@ Accept: application/json
 }
 
 ### long youtube video
-POST http://127.0.0.1:8000/youtube/transcribe
+POST http://127.0.0.1:8000/api/youtube/transcribe
 Accept: application/json
+Authorization: Bearer {{authToken}}
 
 {
 "url": "https://www.youtube.com/watch?v=jModalnvP8Q"
 }
 
-
 ### AUDIO summarize short
-POST http://127.0.0.1:8000/audio/summary
+POST http://127.0.0.1:8000/api/audio/summary
 Accept: application/json
+Authorization: Bearer {{authToken}}
 Content-Type: multipart/form-data; boundary=boundary
 
 --boundary
-Content-Disposition: form-data; name="uploaded_file"; filename="audio_short.mp3";content-type="audio/mp3"
+Content-Disposition: form-data; name="uploaded_file"; filename="audio_short.mp3"
 
-// The 'input.txt' file will be uploaded
 < ./resources/audio_short.mp3
-
 --boundary
-Content-Disposition: form-data; name="type";
+Content-Disposition: form-data; name="type"
 
-// The 'input.txt' file contents will be sent as plain text.
 detailed
-
-
 --boundary
-Content-Disposition: form-data; name="lang";
+Content-Disposition: form-data; name="lang"
 
-// The 'input.txt' file contents will be sent as plain text.
 pl

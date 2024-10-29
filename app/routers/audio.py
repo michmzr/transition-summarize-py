@@ -3,25 +3,33 @@ import os
 import tempfile
 from typing import Annotated
 
-from fastapi import UploadFile, APIRouter, Response, status, Form, Request
+from fastapi import UploadFile, APIRouter, Response, status, Form, Request, Depends
 from starlette.responses import PlainTextResponse
 
+from app.auth import get_current_active_user
 from app.models import SUMMARIZATION_TYPE, SummaryResult, TranscriptionResult
+from app.schema.pydantic_models import User
 from app.summary.summarization import summarize
 from app.transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT, transcribe
 
 VALID_AUDIO_EXTENSIONS = ('flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm')
 
-a_router = APIRouter(prefix="/audio", tags=["audio", "transcription", "summarization"])
-
+a_router = APIRouter(
+    prefix="/audio",
+    tags=["audio", "transcription", "summarization"],
+    dependencies=[Depends(get_current_active_user)]
+)
 
 @a_router.post("/transcribe", response_model=TranscriptionResult)
-def audio_trans(uploaded_file: UploadFile,
-                lang: Annotated[LANG_CODE, Form()],
-                request: Request,
-                response: Response,
-                transcription_response_format: Annotated[
-                    WHISPER_RESPONSE_FORMAT, Form()] = WHISPER_RESPONSE_FORMAT.SRT):
+def audio_trans(
+        uploaded_file: UploadFile,
+        lang: Annotated[LANG_CODE, Form()],
+        request: Request,
+        response: Response,
+        current_user: User = Depends(get_current_active_user),
+        transcription_response_format: Annotated[
+            WHISPER_RESPONSE_FORMAT, Form()] = WHISPER_RESPONSE_FORMAT.SRT
+):
     """
     Transcribe an uploaded audio file to text.
 
@@ -76,11 +84,14 @@ def audio_trans(uploaded_file: UploadFile,
 
 
 @a_router.post("/summary", response_model=SummaryResult)
-def audio_summarize(uploaded_file: UploadFile,
-                    type: Annotated[SUMMARIZATION_TYPE, Form()],
-                    lang: Annotated[LANG_CODE, Form()],
-                    request: Request,
-                    response: Response):
+def audio_summarize(
+        uploaded_file: UploadFile,
+        type: Annotated[SUMMARIZATION_TYPE, Form()],
+        lang: Annotated[LANG_CODE, Form()],
+        request: Request,
+        response: Response,
+        current_user: User = Depends(get_current_active_user)
+):
     """
     Summarize an uploaded audio file.
 

@@ -1,20 +1,30 @@
 import hashlib
 import logging
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from starlette.responses import PlainTextResponse
 
+from app.auth import get_current_active_user
 from app.models import YtVideoSummarize, YTVideoTranscribe, YtVideoInfoRequest, YoutubeMetadata, SummaryResult, \
     TranscriptionResult
+from app.schema.pydantic_models import User
 from app.summary.summarization import summarize
 from app.transcribe.transcription import yt_transcribe, WHISPER_RESPONSE_FORMAT
 from app.youtube.metadata import get_youtube_metadata
 
-yt_router = APIRouter(prefix="/youtube", tags=["youtube", "transcription", "summarization"])
+yt_router = APIRouter(
+    prefix="/youtube",
+    tags=["youtube", "transcription", "summarization"],
+    dependencies=[Depends(get_current_active_user)]
+)
 
 
 @yt_router.post("/transcribe", response_model=TranscriptionResult)
-def yt_transcription(request: Request, yt_request: YTVideoTranscribe):
+def yt_transcription(
+        request: Request,
+        yt_request: YTVideoTranscribe,
+        current_user: User = Depends(get_current_active_user)
+):
     """
     Transcribe a YouTube video.
 
@@ -68,7 +78,11 @@ def save_dir_path(url):
 
 
 @yt_router.post("/summarize", response_model=SummaryResult)
-def yt_summarize(request: Request, yt_request: YtVideoSummarize):
+def yt_summarize(
+        request: Request,
+        yt_request: YtVideoSummarize,
+        current_user: User = Depends(get_current_active_user)
+):
     """
     Summarize a YouTube video.
 
@@ -109,7 +123,10 @@ def yt_summarize(request: Request, yt_request: YtVideoSummarize):
 
 
 @yt_router.post("/details", response_model=YoutubeMetadata)
-def yt_details(request: YtVideoInfoRequest):
+def yt_details(
+        request: YtVideoInfoRequest,
+        current_user: User = Depends(get_current_active_user)
+):
     """
     Get detailed metadata for a YouTube video.
 

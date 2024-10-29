@@ -2,7 +2,6 @@ import logging
 
 import static_ffmpeg
 from fastapi import FastAPI, Depends
-from openai import OpenAI
 
 import app.database
 from app import database  # Import database directly
@@ -28,7 +27,9 @@ protected_app.include_router(yt_router)
 
 # Include the protected app and auth router in the main app
 app.mount("/api", protected_app)
-app.include_router(auth_router, prefix="/auth")
+app.include_router(auth_router)
+app.include_router(yt_router)
+app.include_router(a_router)
 
 logging.basicConfig(
     level=get_settings().logging_level,
@@ -42,9 +43,8 @@ logging.basicConfig(
 # Create tables
 models.Base.metadata.create_all(bind=database.engine)
 
-client = OpenAI(api_key=settings.openai_api_key)
 
-
+# Health api
 @app.get("/health")
 def health_check():
     return "OK"

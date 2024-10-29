@@ -2,7 +2,9 @@ name: Master
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
 
 permissions:
   contents: read
@@ -10,17 +12,36 @@ permissions:
 jobs:
   test_and_build:
     runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Python 3
         id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: "3"
+
       - name: Install pipenv
         run: |
           python -m pip install --upgrade pip
           python -m pip install pipenv
+
       - uses: actions/cache@v1
         id: cache-pipenv
         with:
@@ -31,16 +52,33 @@ jobs:
         if: steps.cache-pipenv.outputs.cache-hit != 'true'
         run: |
           pipenv install --python "${{ steps.setup-python.outputs.python-path }}"
+
       - name: Run migrations
         run: |
           pipenv run alembic upgrade head
+        env:
+          DATABASE_USERNAME: postgres
+          DATABASE_PASSWORD: postgres
+          DATABASE_NAME: test_db
+          SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          IS_LOCAL: true
 
       - name: Unit & integrational without YT testing
         run: |
-          pipenv run pytest  --verbose -vm unit
+          pipenv run pytest --verbose -vm unit
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PROXY_SERVERS: ${{ secrets.PROXY_SERVERS }}
+          DATABASE_USERNAME: postgres
+          DATABASE_PASSWORD: postgres
+          DATABASE_NAME: test_db
+          SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          IS_LOCAL: true
+          LANGCHAIN_TRACING_V2: false
+          LANGCHAIN_ENDPOINT: ""
+          LANGCHAIN_PROJECT: ""
+          LANGCHAIN_API_KEY: ""
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -49,12 +87,19 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           push: true
           tags: ${{secrets.DOCKERHUB_USERNAME}}/av-summarizer-py:latest
-          secret-envs: openai_api_key=api-key,proxy_servers=
+          build-args: |
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            PROXY_SERVERS=${{ secrets.PROXY_SERVERS }}
+            DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }}
+            DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}
+            DATABASE_NAME=${{ secrets.DATABASE_NAME }}
+            SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
 
   release:
     runs-on: ubuntu-latest

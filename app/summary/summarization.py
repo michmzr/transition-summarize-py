@@ -6,6 +6,7 @@ from langchain_openai import ChatOpenAI
 
 from app.cache import conditional_lru_cache
 from app.models import SUMMARIZATION_TYPE
+from app.settings import get_settings
 from app.transcribe.transcription import LANG_CODE
 
 
@@ -48,7 +49,6 @@ def summarize(text: str, type: SUMMARIZATION_TYPE, lang: LANG_CODE):
     prompt = PromptTemplate.from_template(prompt_template)
 
     # Define LLM chain
-    from main import get_settings
     llm = ChatOpenAI(temperature=0.1, model_name="gpt-4o-mini", api_key=get_settings().openai_api_key)
     llm_chain = LLMChain(llm=llm, prompt=prompt)
 

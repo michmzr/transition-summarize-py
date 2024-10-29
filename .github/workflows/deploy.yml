@@ -55,8 +55,11 @@ jobs:
         run: |
           pipenv run alembic upgrade head
         env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
           DATABASE_USERNAME: postgres
           DATABASE_PASSWORD: postgres
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
           DATABASE_NAME: test_db
           SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
           IS_LOCAL: true
@@ -65,11 +68,14 @@ jobs:
         run: |
           pipenv run pytest --verbose -vm unit
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PROXY_SERVERS: ${{ secrets.PROXY_SERVERS }}
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
           DATABASE_USERNAME: postgres
           DATABASE_PASSWORD: postgres
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
           DATABASE_NAME: test_db
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PROXY_SERVERS: ${{ secrets.PROXY_SERVERS }}
           SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
           IS_LOCAL: true
           LANGCHAIN_TRACING_V2: false
@@ -94,7 +100,10 @@ jobs:
           build-args: |
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             PROXY_SERVERS=${{ secrets.PROXY_SERVERS }}
+            DATABASE_URL=postgresql://${{ secrets.DATABASE_USERNAME }}:${{ secrets.DATABASE_PASSWORD }}@${{ secrets.DATABASE_HOST }}:${{ secrets.DATABASE_PORT }}/${{ secrets.DATABASE_NAME }}
             DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }}
             DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}
+            DATABASE_HOST=${{ secrets.DATABASE_HOST }}
+            DATABASE_PORT=${{ secrets.DATABASE_PORT }}
             DATABASE_NAME=${{ secrets.DATABASE_NAME }}
             SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}

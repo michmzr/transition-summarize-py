@@ -3,6 +3,7 @@ import os
 from functools import lru_cache
 
 from openai import OpenAI
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,10 +23,15 @@ class Settings(BaseSettings):
     data_dir: str = os.path.join(base_dir, '/data/downloads')
 
     # Database settings
-    database_username: str
-    database_password: str
-    database_name: str
-    database_url: str = f"postgresql://{{database_username}}:{{database_password}}@localhost:5432/{{database_name}}"
+    database_username: str = Field(default="postgres", env="DATABASE_USERNAME")
+    database_password: str = Field(default="postgres", env="DATABASE_PASSWORD")
+    database_name: str = Field(default="test_db", env="DATABASE_NAME")
+    database_url: str = Field(
+        default="postgresql://postgres:postgres@localhost:5432/test_db",
+        env="DATABASE_URL"
+    )
+    database_host: str = Field(default="localhost", env="DATABASE_HOST")
+    database_port: int = Field(default=5432, env="DATABASE_PORT")
 
     # JWT settings
     secret_key: str

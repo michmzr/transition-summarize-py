@@ -12,11 +12,11 @@ class Settings(BaseSettings):
 
     disable_cache: bool = False
     logging_level: int = logging.DEBUG
-    openai_api_key: str
+    openai_api_key: str = Field(default="", env="OPENAI_API_KEY")
     use_proxy: bool = True
 
     # list of proxy servers, comma separated
-    proxy_servers: str
+    proxy_servers: str = Field(default="", env="PROXY_SERVERS")
 
     # paths
     base_dir: str = os.path.dirname(os.path.abspath(__file__))
@@ -42,10 +42,10 @@ class Settings(BaseSettings):
     is_local: bool = False
 
     # Langchain settings
-    langchain_tracing_v2: bool
-    langchain_endpoint: str
-    langchain_project: str
-    langchain_api_key: str
+    langchain_tracing_v2: bool = Field(default=False, env="LANGCHAIN_TRACING_V2")
+    langchain_endpoint: str = Field(default="", env="LANGCHAIN_ENDPOINT")
+    langchain_project: str = Field(default="", env="LANGCHAIN_PROJECT")
+    langchain_api_key: str = Field(default="", env="LANGCHAIN_API_KEY")
 
 @lru_cache
 def get_settings():

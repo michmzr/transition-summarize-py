@@ -63,6 +63,10 @@ jobs:
           DATABASE_NAME: test_db
           SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
           IS_LOCAL: true
+          LANGCHAIN_TRACING_V2: false
+          LANGCHAIN_ENDPOINT: ""
+          LANGCHAIN_PROJECT: ""
+          LANGCHAIN_API_KEY: ""
 
       - name: Unit & integrational without YT testing
         run: |

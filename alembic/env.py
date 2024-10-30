@@ -28,10 +28,10 @@ target_metadata = Base.metadata
 
 # Get the database URL from settings
 settings = get_settings()
-if settings.is_local:
-    config.set_main_option("sqlalchemy.url", settings.database_url.replace("db", "localhost"))
-else:
-    config.set_main_option("sqlalchemy.url", settings.database_url)
+database_url = settings.database_url
+if settings.is_local and "db" in database_url:
+    database_url = database_url.replace("db", "localhost")
+config.set_main_option("sqlalchemy.url", database_url)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

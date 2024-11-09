@@ -5,9 +5,9 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-import app
 from app import database
 from app.auth import get_password_hash
+from app.main import app
 from app.schema.models import UserDB
 
 BASE_URL = "http://127.0.0.1:8000/"
@@ -45,7 +45,8 @@ async def auth_token(test_db):
             "/auth/token",
             data={"username": "testuser", "password": "testpass123"}
         )
-        return response.json()["access_token"]
+        token = response.json()["access_token"]
+        return token
 
 
 @pytest.fixture
@@ -93,13 +94,14 @@ async def test_audio_transcribe_invalid_file(auth_headers):
 @pytest.mark.asyncio
 @pytest.mark.integration_no_yt
 async def test_given_audio_file_expect_non_empty_summary(auth_token):
+    token = await auth_token
     async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
         with open('tests/resources/audio_short.mp3', 'rb') as f:
             response = await ac.post(
                 "/api/audio/summary",
                 files={"uploaded_file": f},
                 data={"type": "tldr", "lang": "pl"},
-                headers={"Authorization": f"Bearer {auth_token}"}
+                headers={"Authorization": f"Bearer {token}"}
             )
             
             assert response.status_code == 200
@@ -108,11 +110,12 @@ async def test_given_audio_file_expect_non_empty_summary(auth_token):
 
 @pytest.mark.asyncio
 async def test_given_url_expect_non_empty_transcription(auth_token):
+    token = await auth_token
     async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
         response = await ac.post(
             "/api/youtube/transcribe",
             json={"url": SHORT_YT_VIDEO, "lang": "en"},
-            headers={"Authorization": f"Bearer {auth_token}"}
+            headers={"Authorization": f"Bearer {token}"}
         )
         
         assert response.status_code == 200

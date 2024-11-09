@@ -30,7 +30,8 @@ target_metadata = Base.metadata
 settings = get_settings()
 database_url = settings.database_url
 if settings.is_local and "db" in database_url:
-    database_url = database_url.replace("db", "localhost")
+    # Only replace the hostname, not the database name
+    database_url = database_url.replace("@db:", "@localhost:")
 config.set_main_option("sqlalchemy.url", database_url)
 
 # other values from the config, defined by the needs of env.py,

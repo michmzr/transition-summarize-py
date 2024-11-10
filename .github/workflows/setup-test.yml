@@ -10,6 +10,13 @@ on:
       PROXY_SERVERS:
         required: true
 
+permissions:
+  checks: write
+  pull-requests: write
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   setup_and_test:
     runs-on: ubuntu-latest
@@ -31,48 +38,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3
-        id: setup-python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3"
+          python-version: '3.12'
+          cache: 'pip'
 
       - name: Install pipenv
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pipenv
+          pip install pipenv
 
-      - uses: actions/cache@v4
-        id: cache-pipenv
+      - name: Cache pipenv virtualenv
+        uses: actions/cache@v4
         with:
           path: ~/.local/share/virtualenvs
           key: ${{ runner.os }}-pipenv-${{ hashFiles('**/Pipfile.lock') }}
-
-      - name: Install dependencies
-        if: steps.cache-pipenv.outputs.cache-hit != 'true'
-        run: |
-          pipenv install --python "${{ steps.setup-python.outputs.python-path }}"
-
-      - name: Run migrations
-        run: |
-          sleep 5
-          pipenv run alembic upgrade head
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
-          DATABASE_USERNAME: postgres
-          DATABASE_PASSWORD: postgres
-          DATABASE_HOST: localhost
-          DATABASE_PORT: 5432
-          DATABASE_NAME: test_db
-          SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-          IS_LOCAL: true
-          ENABLE_REGISTRATION: true
-          LANGCHAIN_TRACING_V2: false
-          LANGCHAIN_ENDPOINT: ""
-          LANGCHAIN_PROJECT: ""
-          LANGCHAIN_API_KEY: ""
+          restore-keys: |
+            ${{ runner.os }}-pipenv-
 
       - name: Unit & integrational testing
+        id: test-run
         run: |
           pipenv install pytest-asyncio pytest-cov pytest-html pytest-sugar
           PYTHONPATH=$PWD pipenv run pytest \
@@ -100,14 +86,64 @@ jobs:
           LANGCHAIN_PROJECT: ""
           LANGCHAIN_API_KEY: ""
 
-      - name: Upload Test Results
+      - name: Publish Test Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: EnricoMi/publish-unit-test-result-action@v2
         with:
-          name: pytest-results
+          files: pytest-results.xml
+          comment_mode: always
+          compare_to_earlier_commit: true
+          report_individual_runs: true
+          test_changes_limit: 0
+          check_name: "Pytest Results"
+
+      - name: Setup Pages
+        if: always()
+        uses: actions/configure-pages@v4
+
+      - name: Upload HTML Report
+        if: always()
+        uses: actions/upload-pages-artifact@v3
+        with:
           path: |
-            pytest-results.xml
             pytest-report.html
-            coverage.xml
             htmlcov/
-          retention-days: 3
+
+      - name: Deploy Report to GitHub Pages
+        if: always()
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Get PR Number
+        if: always()
+        id: pr
+        run: |
+          PR_NUMBER=$(gh api /repos/${{ github.repository }}/pulls \
+            --jq ".[] | select(.head.sha == \"${{ github.sha }}\") | .number")
+          echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find Comment
+        if: always() && steps.pr.outputs.number
+        uses: peter-evans/find-comment@v3
+        id: fc
+        with:
+          issue-number: ${{ steps.pr.outputs.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: Test Report Links
+
+      - name: Create or Update Comment
+        if: always() && steps.pr.outputs.number
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          issue-number: ${{ steps.pr.outputs.number }}
+          body: |
+            ### Test Report Links 📊
+            
+            - [Detailed HTML Test Report](${{ steps.deployment.outputs.page_url }}/pytest-report.html)
+            - [Coverage Report](${{ steps.deployment.outputs.page_url }}/htmlcov/index.html)
+            
+            > These reports are updated automatically with each test run.
+          edit-mode: replace

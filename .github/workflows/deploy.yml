@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   test_and_build:
-    uses: ./.github/workflows/reusable-setup-test.yml
+    uses: ./.github/workflows/setup-test.yml
     secrets:
       JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

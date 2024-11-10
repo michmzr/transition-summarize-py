@@ -102,14 +102,13 @@ async def test_audio_transcribe_invalid_file(auth_headers):
 @pytest.mark.asyncio
 @pytest.mark.integration_no_yt
 async def test_given_audio_file_expect_non_empty_summary(auth_token):
-    token = await auth_token
     async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
         with open('tests/resources/audio_short.mp3', 'rb') as f:
             response = await ac.post(
                 "/api/audio/summary",
                 files={"uploaded_file": f},
                 data={"type": "tldr", "lang": "pl"},
-                headers={"Authorization": f"Bearer {token}"}
+                headers={"Authorization": f"Bearer {auth_token}"}
             )
             
             assert response.status_code == 200

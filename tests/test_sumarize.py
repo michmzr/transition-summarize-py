@@ -1,5 +1,6 @@
 from app.models import SUMMARIZATION_TYPE
 from summary.summarization import summarize
+from transcribe.transcription import LANG_CODE
 
 
 def test_summarize():
@@ -10,21 +11,21 @@ def test_summarize():
     The player character can engage in first- or third-person combat using various weapon types and abilities.
     """
 
-    summary = summarize(text, SUMMARIZATION_TYPE.TLDR)
+    summary = summarize(text, SUMMARIZATION_TYPE.TLDR, LANG_CODE.ENGLISH)
     assert summary is not None
     assert len(summary) > 0
     assert "Fallout" in summary
 
 
 def test_summarize_with_empty_input():
-    summary = summarize("", SUMMARIZATION_TYPE.TLDR)
+    summary = summarize("", SUMMARIZATION_TYPE.TLDR, LANG_CODE.ENGLISH)
     assert summary == ""
 
 
 def test_summarize_with_different_types():
     text = "This is a test text that needs to be summarized in different ways."
 
-    tldr_summary = summarize(text, SUMMARIZATION_TYPE.TLDR)
+    tldr_summary = summarize(text, SUMMARIZATION_TYPE.TLDR, LANG_CODE.ENGLISH)
     assert tldr_summary is not None
     assert len(tldr_summary) > 0
 

@@ -1,0 +1,35 @@
+name: Test Results
+
+on:
+  workflow_run:
+    workflows: ["Feature", "Master"]
+    types:
+      - completed
+
+permissions:
+  checks: write
+  pull-requests: write
+
+jobs:
+  test-results:
+    name: Process Test Results
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion != 'skipped'
+
+    steps:
+      - name: Download Test Results
+        uses: actions/download-artifact@v4
+        with:
+          name: pytest-results
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: "pytest-results.xml"
+          comment_mode: always
+          compare_to_earlier_commit: true
+          report_individual_runs: true
+          test_changes_limit: 0
+          check_name: "Pytest Results" 

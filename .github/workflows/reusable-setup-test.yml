@@ -42,7 +42,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pipenv
 
-      - uses: actions/cache@v1
+      - uses: actions/cache@v4
         id: cache-pipenv
         with:
           path: ~/.local/share/virtualenvs
@@ -73,8 +73,8 @@ jobs:
 
       - name: Unit & integrational testing
         run: |
-          pipenv install pytest-asyncio
-          PYTHONPATH=$PWD pipenv run pytest --verbose -v
+          pipenv install pytest-asyncio pytest-cov
+          PYTHONPATH=$PWD pipenv run pytest --verbose -v --junitxml=pytest-results.xml --cov=app --cov-report=xml
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
           DATABASE_USERNAME: postgres
@@ -89,4 +89,13 @@ jobs:
           LANGCHAIN_TRACING_V2: false
           LANGCHAIN_ENDPOINT: ""
           LANGCHAIN_PROJECT: ""
-          LANGCHAIN_API_KEY: "" 
+          LANGCHAIN_API_KEY: ""
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results
+          path: |
+            pytest-results.xml
+            coverage.xml

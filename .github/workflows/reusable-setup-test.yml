@@ -110,3 +110,4 @@ jobs:
             pytest-report.html
             coverage.xml
             htmlcov/
+          retention-days: 3

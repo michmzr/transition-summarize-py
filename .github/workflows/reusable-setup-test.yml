@@ -73,7 +73,8 @@ jobs:
 
       - name: Unit & integrational testing
         run: |
-          pipenv run pytest --verbose -vm unit
+          pipenv install pytest-asyncio
+          PYTHONPATH=$PWD pipenv run pytest --verbose -v
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
           DATABASE_USERNAME: postgres

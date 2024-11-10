@@ -18,8 +18,12 @@ client = TestClient(app)
 
 @pytest.fixture
 def test_db():
-    # Create test user
+    # Clean up any existing test user first
     db = database.SessionLocal()
+    db.query(UserDB).filter(UserDB.username == "testuser").delete()
+    db.commit()
+
+    # Create test user
     hashed_password = get_password_hash("testpass123")
     test_user = UserDB(
         username="testuser",
@@ -32,7 +36,7 @@ def test_db():
 
     yield db
 
-    # Cleanup
+    # Cleanup after test
     db.query(UserDB).filter(UserDB.username == "testuser").delete()
     db.commit()
     db.close()
@@ -45,8 +49,7 @@ async def auth_token(test_db):
             "/auth/token",
             data={"username": "testuser", "password": "testpass123"}
         )
-        token = response.json()["access_token"]
-        return token
+        return response.json()["access_token"]
 
 
 @pytest.fixture
@@ -58,6 +61,8 @@ def audio_file():
     with open('tests/resources/audio_short.mp3', 'rb') as f:
         yield f
 
+
+@pytest.mark.asyncio
 @pytest.mark.unit
 @pytest.mark.integration_no_yt
 async def test_audio_transcribe_valid_file(audio_file, auth_headers):
@@ -74,6 +79,8 @@ async def test_audio_transcribe_valid_file(audio_file, auth_headers):
     assert "transcription" in json
     assert "format" in json
 
+
+@pytest.mark.asyncio
 @pytest.mark.unit
 @pytest.mark.integration_no_yt
 async def test_audio_transcribe_invalid_file(auth_headers):

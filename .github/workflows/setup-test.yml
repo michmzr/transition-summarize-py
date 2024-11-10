@@ -82,15 +82,7 @@ jobs:
           LANGCHAIN_PROJECT: ""
           LANGCHAIN_API_KEY: ""
 
-      - name: Process Coverage
-        if: always()
-        id: coverage
-        run: |
-          TOTAL_COVERAGE=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(root.attrib['line-rate'])")
-          COVERAGE_PERCENT=$(python -c "print(round(float('${TOTAL_COVERAGE}') * 100, 2))")
-          echo "percentage=${COVERAGE_PERCENT}" >> $GITHUB_OUTPUT
-
-      - name: Get Test Results
+      - name: Process Test Results
         if: always()
         id: test-results
         run: |
@@ -103,14 +95,25 @@ jobs:
           errors = int(root.attrib['errors'])
           skipped = int(root.attrib['skipped'])
           time = float(root.attrib['time'])
-          print(f'{tests},{failures},{errors},{skipped},{time}')
+          passed = tests - failures - errors - skipped
+          print(f'{tests},{failures},{errors},{skipped},{passed},{time}')
           ")
-          IFS=',' read -r tests failures errors skipped time <<< "${RESULTS}"
+          IFS=',' read -r tests failures errors skipped passed time <<< "${RESULTS}"
           echo "tests=${tests}" >> $GITHUB_OUTPUT
           echo "failures=${failures}" >> $GITHUB_OUTPUT
           echo "errors=${errors}" >> $GITHUB_OUTPUT
           echo "skipped=${skipped}" >> $GITHUB_OUTPUT
+          echo "passed=${passed}" >> $GITHUB_OUTPUT
           echo "time=${time}" >> $GITHUB_OUTPUT
+
+          COVERAGE=$(python -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('coverage.xml')
+          root = tree.getroot()
+          coverage = round(float(root.attrib['line-rate']) * 100, 2)
+          print(coverage)
+          ")
+          echo "coverage=${COVERAGE}" >> $GITHUB_OUTPUT
 
       - name: Get PR Number
         if: always()
@@ -141,11 +144,11 @@ jobs:
             ### Test Results Summary 📊
             
             #### Coverage Report
-            - Total Coverage: ${{ steps.coverage.outputs.percentage }}%
+            - Total Coverage: ${{ steps.test-results.outputs.coverage }}%
             
             #### Test Statistics
             - Total Tests: ${{ steps.test-results.outputs.tests }}
-            - ✅ Passed: ${{ steps.test-results.outputs.tests - steps.test-results.outputs.failures - steps.test-results.outputs.errors - steps.test-results.outputs.skipped }}
+            - ✅ Passed: ${{ steps.test-results.outputs.passed }}
             - ❌ Failed: ${{ steps.test-results.outputs.failures }}
             - 🔴 Errors: ${{ steps.test-results.outputs.errors }}
             - ⏭️ Skipped: ${{ steps.test-results.outputs.skipped }}

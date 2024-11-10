@@ -16,8 +16,7 @@ jobs:
       JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       PROXY_SERVERS: ${{ secrets.PROXY_SERVERS }}
-
-  docker_build:
+  release:
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -47,3 +46,4 @@ jobs:
             DATABASE_PORT=${{ secrets.DATABASE_PORT }}
             DATABASE_NAME=${{ secrets.DATABASE_NAME }}
             SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+

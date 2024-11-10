@@ -66,6 +66,7 @@ jobs:
           DATABASE_NAME: test_db
           SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
           IS_LOCAL: true
+          ENABLE_REGISTRATION: true
           LANGCHAIN_TRACING_V2: false
           LANGCHAIN_ENDPOINT: ""
           LANGCHAIN_PROJECT: ""
@@ -73,8 +74,15 @@ jobs:
 
       - name: Unit & integrational testing
         run: |
-          pipenv install pytest-asyncio pytest-cov
-          PYTHONPATH=$PWD pipenv run pytest --verbose -v --junitxml=pytest-results.xml --cov=app --cov-report=xml
+          pipenv install pytest-asyncio pytest-cov pytest-html pytest-sugar
+          PYTHONPATH=$PWD pipenv run pytest \
+            --verbose -v \
+            --junitxml=pytest-results.xml \
+            --html=pytest-report.html \
+            --self-contained-html \
+            --cov=app \
+            --cov-report=html \
+            --cov-report=xml
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
           DATABASE_USERNAME: postgres
@@ -86,6 +94,7 @@ jobs:
           PROXY_SERVERS: ${{ secrets.PROXY_SERVERS }}
           SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
           IS_LOCAL: true
+          ENABLE_REGISTRATION: true
           LANGCHAIN_TRACING_V2: false
           LANGCHAIN_ENDPOINT: ""
           LANGCHAIN_PROJECT: ""
@@ -98,4 +107,6 @@ jobs:
           name: pytest-results
           path: |
             pytest-results.xml
+            pytest-report.html
             coverage.xml
+            htmlcov/

@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     langchain_project: str = Field(default="", env="LANGCHAIN_PROJECT")
     langchain_api_key: str = Field(default="", env="LANGCHAIN_API_KEY")
 
+    # Add this new setting
+    enable_registration: bool = Field(default=True, env="ENABLE_REGISTRATION")
+
 @lru_cache
 def get_settings():
     return Settings()

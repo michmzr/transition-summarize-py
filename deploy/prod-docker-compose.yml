@@ -1,4 +1,5 @@
 version: '3.8'
+name: av-summarizer
 
 services:
   av-summarizer-py:
@@ -8,10 +9,7 @@ services:
       - "8086:8086"
     volumes:
       - /var/lib/av-summarizer-py/data:/data/downloads
-    environment:
-      - OPENAI_API_KEY
-      - PROXY_SERVERS
-      - DATABASE_URL=postgresql://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@localhost:5432/${DATABASE_NAME}
+    env_file: "av-summ.env"
 
     depends_on:
       - db

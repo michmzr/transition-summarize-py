@@ -9,6 +9,7 @@ from app import database
 from app.auth import get_password_hash
 from app.main import app
 from app.schema.models import UserDB
+from app.settings import get_settings
 
 BASE_URL = "http://127.0.0.1:8000/"
 SHORT_YT_VIDEO = "https://www.youtube.com/watch?v=WuciqTSbewY"
@@ -152,3 +153,28 @@ def teardown_module(module):
     downloads_dir = 'tests/downloads'
     if os.path.exists(downloads_dir):
         shutil.rmtree(downloads_dir)
+
+
+@pytest.mark.asyncio
+async def test_registration_disabled(test_db):
+    # Temporarily set enable_registration to False
+    settings = get_settings()
+    original_value = settings.enable_registration
+    settings.enable_registration = False
+
+    try:
+        response = client.post(
+            "/auth/register",
+            json={
+                "username": "newuser",
+                "email": "newuser@example.com",
+                "password": "password123"
+            }
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Registration is currently disabled"
+
+    finally:
+        # Restore original value
+        settings.enable_registration = original_value

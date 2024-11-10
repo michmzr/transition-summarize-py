@@ -78,12 +78,13 @@ langchain-community = ">=0.2.5"
 pyee = "~=11.1.0"
 ffmpeg = "~=1.4"
 termcolor = "~=2.4.0"
-pytest-sugar = "~=1.0.0"
+pytest-sugar = "*"
 jiter = "~=0.5.0"
 python-jose = { extras = ["cryptography"], version = "*" }
 passlib = { extras = ["bcrypt"], version = "*" }
 psycopg2-binary = "*"
 alembic = "*"
+pytest-html = "*"
 pytest-cov = "*"
 
 [dev-packages]

@@ -36,6 +36,12 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
 @auth_router.post("/register", response_model=User)
 def register_user(user: UserCreate, db: Session = Depends(database.get_db)):
+    if not settings.enable_registration:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Registration is currently disabled"
+        )
+        
     logging.info(f"Registering user {user.username} {user.email}")
 
     db_user = auth.get_user(db, username=user.username)

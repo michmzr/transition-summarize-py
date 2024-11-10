@@ -14,8 +14,6 @@ permissions:
   checks: write
   pull-requests: write
   contents: read
-  pages: write
-  id-token: write
 
 jobs:
   setup_and_test:
@@ -64,10 +62,8 @@ jobs:
           PYTHONPATH=$PWD pipenv run pytest \
             --verbose -v \
             --junitxml=pytest-results.xml \
-            --html=pytest-report.html \
-            --self-contained-html \
             --cov=app \
-            --cov-report=html \
+            --cov-report=term-missing:skip-covered \
             --cov-report=xml
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
@@ -86,33 +82,35 @@ jobs:
           LANGCHAIN_PROJECT: ""
           LANGCHAIN_API_KEY: ""
 
-      - name: Publish Test Results
+      - name: Process Coverage
         if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: pytest-results.xml
-          comment_mode: always
-          compare_to_earlier_commit: true
-          report_individual_runs: true
-          test_changes_limit: 0
-          check_name: "Pytest Results"
+        id: coverage
+        run: |
+          TOTAL_COVERAGE=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(root.attrib['line-rate'])")
+          COVERAGE_PERCENT=$(python -c "print(round(float('${TOTAL_COVERAGE}') * 100, 2))")
+          echo "percentage=${COVERAGE_PERCENT}" >> $GITHUB_OUTPUT
 
-      - name: Setup Pages
+      - name: Get Test Results
         if: always()
-        uses: actions/configure-pages@v4
-
-      - name: Upload HTML Report
-        if: always()
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: |
-            pytest-report.html
-            htmlcov/
-
-      - name: Deploy Report to GitHub Pages
-        if: always()
-        id: deployment
-        uses: actions/deploy-pages@v4
+        id: test-results
+        run: |
+          RESULTS=$(python -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('pytest-results.xml')
+          root = tree.getroot()
+          tests = int(root.attrib['tests'])
+          failures = int(root.attrib['failures'])
+          errors = int(root.attrib['errors'])
+          skipped = int(root.attrib['skipped'])
+          time = float(root.attrib['time'])
+          print(f'{tests},{failures},{errors},{skipped},{time}')
+          ")
+          IFS=',' read -r tests failures errors skipped time <<< "${RESULTS}"
+          echo "tests=${tests}" >> $GITHUB_OUTPUT
+          echo "failures=${failures}" >> $GITHUB_OUTPUT
+          echo "errors=${errors}" >> $GITHUB_OUTPUT
+          echo "skipped=${skipped}" >> $GITHUB_OUTPUT
+          echo "time=${time}" >> $GITHUB_OUTPUT
 
       - name: Get PR Number
         if: always()
@@ -131,7 +129,7 @@ jobs:
         with:
           issue-number: ${{ steps.pr.outputs.number }}
           comment-author: 'github-actions[bot]'
-          body-includes: Test Report Links
+          body-includes: Test Results Summary
 
       - name: Create or Update Comment
         if: always() && steps.pr.outputs.number
@@ -140,10 +138,29 @@ jobs:
           comment-id: ${{ steps.fc.outputs.comment-id }}
           issue-number: ${{ steps.pr.outputs.number }}
           body: |
-            ### Test Report Links 📊
+            ### Test Results Summary 📊
             
-            - [Detailed HTML Test Report](${{ steps.deployment.outputs.page_url }}/pytest-report.html)
-            - [Coverage Report](${{ steps.deployment.outputs.page_url }}/htmlcov/index.html)
+            #### Coverage Report
+            - Total Coverage: ${{ steps.coverage.outputs.percentage }}%
             
-            > These reports are updated automatically with each test run.
+            #### Test Statistics
+            - Total Tests: ${{ steps.test-results.outputs.tests }}
+            - ✅ Passed: ${{ steps.test-results.outputs.tests - steps.test-results.outputs.failures - steps.test-results.outputs.errors - steps.test-results.outputs.skipped }}
+            - ❌ Failed: ${{ steps.test-results.outputs.failures }}
+            - 🔴 Errors: ${{ steps.test-results.outputs.errors }}
+            - ⏭️ Skipped: ${{ steps.test-results.outputs.skipped }}
+            - ⏱️ Duration: ${{ steps.test-results.outputs.time }}s
+            
+            > Results from test run at ${{ github.event.head_commit.timestamp }}
           edit-mode: replace
+
+      - name: Publish Test Results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: pytest-results.xml
+          comment_mode: always
+          compare_to_earlier_commit: true
+          report_individual_runs: true
+          test_changes_limit: 0
+          check_name: "Pytest Results"

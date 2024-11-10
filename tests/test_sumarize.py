@@ -1,6 +1,6 @@
 from app.models import SUMMARIZATION_TYPE
+from app.transcribe.transcription import LANG_CODE
 from summary.summarization import summarize
-from transcribe.transcription import LANG_CODE
 
 
 def test_summarize():
@@ -29,10 +29,10 @@ def test_summarize_with_different_types():
     assert tldr_summary is not None
     assert len(tldr_summary) > 0
 
-    concise_summary = summarize(text, SUMMARIZATION_TYPE.CONCISE)
+    concise_summary = summarize(text, SUMMARIZATION_TYPE.CONCISE, LANG_CODE.ENGLISH)
     assert concise_summary is not None
     assert len(concise_summary) > 0
 
-    detailed_summary = summarize(text, SUMMARIZATION_TYPE.DETAILED)
+    detailed_summary = summarize(text, SUMMARIZATION_TYPE.DETAILED, LANG_CODE.ENGLISH)
     assert detailed_summary is not None
     assert len(detailed_summary) > 0

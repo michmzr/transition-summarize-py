@@ -1,4 +1,4 @@
-name: Reusable Setup and Test
+name: Setup and Test
 
 on:
   workflow_call:

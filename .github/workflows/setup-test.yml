@@ -58,18 +58,29 @@ jobs:
       - name: Install dependencies and run tests
         id: test-run
         run: |
-          # Install dependencies with specific Python version
+          echo "Installing dependencies..."
           pipenv --python ${{ env.pythonLocation }}/bin/python install
           pipenv install pytest-asyncio pytest-cov pytest-html pytest-sugar
 
-          # Run tests and capture the exit code
-          pipenv run pytest \
+          echo "Running tests..."
+          PYTHONPATH=$PWD pipenv run pytest \
             --verbose -v \
             --junitxml=pytest-results.xml \
             --cov=app \
             --cov-report=term-missing:skip-covered \
-            --cov-report=xml || true  # Continue even if tests fail
+            --cov-report=xml
+          
+          echo "Test files generated:"
+          ls -la pytest-results.xml || echo "pytest-results.xml not found"
+          ls -la coverage.xml || echo "coverage.xml not found"
+          
+          echo "Content of pytest-results.xml:"
+          cat pytest-results.xml || echo "Cannot read pytest-results.xml"
+          
+          echo "Content of coverage.xml:"
+          cat coverage.xml || echo "Cannot read coverage.xml"
         env:
+          PYTHONPATH: ${{ github.workspace }}
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
           DATABASE_USERNAME: postgres
           DATABASE_PASSWORD: postgres
@@ -90,6 +101,8 @@ jobs:
         if: always()
         id: test-results
         run: |
+          echo "Starting test results processing..."
+          
           # Initialize default values
           echo "tests=0" >> $GITHUB_OUTPUT
           echo "failures=0" >> $GITHUB_OUTPUT
@@ -99,8 +112,9 @@ jobs:
           echo "time=0" >> $GITHUB_OUTPUT
           echo "coverage=0" >> $GITHUB_OUTPUT
 
-          # Process test results if file exists
+          echo "Checking for pytest-results.xml..."
           if [ -f "pytest-results.xml" ]; then
+            echo "Found pytest-results.xml, processing..."
             RESULTS=$(python -c "
             import xml.etree.ElementTree as ET
             tree = ET.parse('pytest-results.xml')
@@ -113,6 +127,7 @@ jobs:
             passed = tests - failures - errors - skipped
             print(f'{tests},{failures},{errors},{skipped},{passed},{time}')
             ")
+            echo "Raw results: ${RESULTS}"
             IFS=',' read -r tests failures errors skipped passed time <<< "${RESULTS}"
             echo "tests=${tests}" >> $GITHUB_OUTPUT
             echo "failures=${failures}" >> $GITHUB_OUTPUT
@@ -120,10 +135,13 @@ jobs:
             echo "skipped=${skipped}" >> $GITHUB_OUTPUT
             echo "passed=${passed}" >> $GITHUB_OUTPUT
             echo "time=${time}" >> $GITHUB_OUTPUT
+          else
+            echo "pytest-results.xml not found!"
           fi
 
-          # Process coverage if file exists
+          echo "Checking for coverage.xml..."
           if [ -f "coverage.xml" ]; then
+            echo "Found coverage.xml, processing..."
             COVERAGE=$(python -c "
             import xml.etree.ElementTree as ET
             tree = ET.parse('coverage.xml')
@@ -131,7 +149,10 @@ jobs:
             coverage = round(float(root.attrib['line-rate']) * 100, 2)
             print(coverage)
             ")
+            echo "Coverage value: ${COVERAGE}"
             echo "coverage=${COVERAGE}" >> $GITHUB_OUTPUT
+          else
+            echo "coverage.xml not found!"
           fi
 
       - name: Get PR Number

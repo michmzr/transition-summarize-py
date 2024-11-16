@@ -115,18 +115,17 @@ jobs:
           echo "Checking for pytest-results.xml..."
           if [ -f "pytest-results.xml" ]; then
             echo "Found pytest-results.xml, processing..."
-            RESULTS=$(python -c "
-            import xml.etree.ElementTree as ET
-            tree = ET.parse('pytest-results.xml')
-            root = tree.getroot()
-            tests = int(root.attrib['tests'])
-            failures = int(root.attrib['failures'])
-            errors = int(root.attrib['errors'])
-            skipped = int(root.attrib['skipped'])
-            time = float(root.attrib['time'])
-            passed = tests - failures - errors - skipped
-            print(f'{tests},{failures},{errors},{skipped},{passed},{time}')
-            ")
+            RESULTS=$(python3 -c "
+import xml.etree.ElementTree as ET
+tree = ET.parse('pytest-results.xml')
+root = tree.getroot()
+tests = int(root.attrib['tests'])
+failures = int(root.attrib['failures'])
+errors = int(root.attrib['errors'])
+skipped = int(root.attrib['skipped'])
+time = float(root.attrib['time'])
+passed = tests - failures - errors - skipped
+print(f'{tests},{failures},{errors},{skipped},{passed},{time}')")
             echo "Raw results: ${RESULTS}"
             IFS=',' read -r tests failures errors skipped passed time <<< "${RESULTS}"
             echo "tests=${tests}" >> $GITHUB_OUTPUT
@@ -142,13 +141,12 @@ jobs:
           echo "Checking for coverage.xml..."
           if [ -f "coverage.xml" ]; then
             echo "Found coverage.xml, processing..."
-            COVERAGE=$(python -c "
-            import xml.etree.ElementTree as ET
-            tree = ET.parse('coverage.xml')
-            root = tree.getroot()
-            coverage = round(float(root.attrib['line-rate']) * 100, 2)
-            print(coverage)
-            ")
+            COVERAGE=$(python3 -c "
+import xml.etree.ElementTree as ET
+tree = ET.parse('coverage.xml')
+root = tree.getroot()
+coverage = round(float(root.attrib['line-rate']) * 100, 2)
+print(coverage)")
             echo "Coverage value: ${COVERAGE}"
             echo "coverage=${COVERAGE}" >> $GITHUB_OUTPUT
           else

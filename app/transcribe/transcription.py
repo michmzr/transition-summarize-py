@@ -51,6 +51,8 @@ def yt_transcribe(url: str,
     Transcribe the videos to text
 
     inspiration: https://python.langchain.com/docs/integrations/document_loaders/youtube_audio/
+    :param lang:
+    :param response_format:
     :param url: yt video url
     :param save_dir:
     """
@@ -82,6 +84,7 @@ def transcribe(file: BinaryIO,
     Transcribe audio file to text
 
     inspiration: https://python.langchain.com/docs/integrations/document_loaders/youtube_audio/
+    :param response_format:
     :param lang: Lang code
     :param file: audio file
     """
@@ -134,6 +137,7 @@ def small_file(file: BinaryIO,
                response_format: WHISPER_RESPONSE_FORMAT = WHISPER_RESPONSE_FORMAT.TEXT
                ):
     """
+    :param response_format:
     :param file: binary file
     :param lang:  language: The language of the input audio. Supplying the input language in
               [ISO-639-1](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) format will

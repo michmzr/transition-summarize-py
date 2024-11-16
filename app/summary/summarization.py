@@ -44,6 +44,10 @@ def get_template(type):
 def summarize(text: str, type: SUMMARIZATION_TYPE, lang: LANG_CODE):
     logging.info(f"Summarizing text with type: ${type}, lang code: {lang.value}")
 
+    if not text:
+        logging.warning("Text is empty, returning empty string")
+        return ""
+
     # Define prompt
     prompt_template = get_template(type)
     prompt = PromptTemplate.from_template(prompt_template)

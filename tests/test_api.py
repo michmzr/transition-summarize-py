@@ -117,12 +117,11 @@ async def test_given_audio_file_expect_non_empty_summary(auth_token):
 
 @pytest.mark.asyncio
 async def test_given_url_expect_non_empty_transcription(auth_token):
-    token = await auth_token
     async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
         response = await ac.post(
             "/api/youtube/transcribe",
             json={"url": SHORT_YT_VIDEO, "lang": "en"},
-            headers={"Authorization": f"Bearer {token}"}
+            headers={"Authorization": f"Bearer {auth_token}"}
         )
         
         assert response.status_code == 200

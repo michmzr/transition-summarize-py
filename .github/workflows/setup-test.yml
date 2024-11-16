@@ -142,11 +142,11 @@ jobs:
           if [ -f "coverage.xml" ]; then
             echo "Found coverage.xml, processing..."
             COVERAGE=$(python3 -c "
-import xml.etree.ElementTree as ET
-tree = ET.parse('coverage.xml')
-root = tree.getroot()
-coverage = round(float(root.attrib['line-rate']) * 100, 2)
-print(coverage)")
+              import xml.etree.ElementTree as ET
+              tree = ET.parse('coverage.xml')
+              root = tree.getroot()
+              coverage = round(float(root.attrib['line-rate']) * 100, 2)
+              print(coverage)")
             echo "Coverage value: ${COVERAGE}"
             echo "coverage=${COVERAGE}" >> $GITHUB_OUTPUT
           else

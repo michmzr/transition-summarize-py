@@ -1,3 +1,5 @@
+import pytest
+
 from app.models import SUMMARIZATION_TYPE
 from app.transcribe.transcription import LANG_CODE
 from app.summary.summarization import summarize
@@ -9,6 +11,7 @@ import langsmith as ls
     tags=["summarization", "test"],
     metadata={"flow": "summarization", "env": "test"}
 )
+@pytest.mark.integration_no_yt
 def test_summarize():
     text = """
     Fallout 4 is a post-apocalyptic action role-playing video game developed by Bethesda Game Studios. 
@@ -22,7 +25,7 @@ def test_summarize():
     assert len(summary) > 0
     assert "Fallout" in summary
 
-
+@pytest.mark.integration_no_yt
 def test_summarize_with_empty_input():
     summary = summarize("", SUMMARIZATION_TYPE.TLDR, LANG_CODE.ENGLISH)
     assert summary == ""
@@ -33,6 +36,7 @@ def test_summarize_with_empty_input():
     tags=["summarization", "test"],
     metadata={"flow": "summarization", "env": "test"}
 )
+@pytest.mark.integration_no_yt
 def test_summarize_with_different_types():
     text = "This is a test text that needs to be summarized in different ways."
 

@@ -1,4 +1,5 @@
-from config import get_settings
+from app.settings import get_settings
+
 
 def proxy_servers():
     settings = get_settings()

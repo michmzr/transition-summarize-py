@@ -65,7 +65,7 @@ jobs:
           echo "Running tests..."
           PYTHONPATH=$PWD pipenv run pytest \
             --verbose -v \
-            -m "not integration_no_yt" \
+            -m "integration_no_yt" \
             --junitxml=pytest-results.xml \
             --cov=app \
             --cov-report=term-missing:skip-covered \

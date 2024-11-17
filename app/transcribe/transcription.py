@@ -10,7 +10,7 @@ from langchain_community.document_loaders.generic import GenericLoader
 from pydub import AudioSegment
 
 from app.cache import conditional_lru_cache
-from app.config import get_downloads_path
+from app.settings import get_settings
 from app.transcribe.OpenAIWhisperParser import OpenAIWhisperParser
 from app.youtube.loader import YoutubeAudioLoader
 
@@ -58,22 +58,20 @@ def yt_transcribe(url: str,
     """
     logging.info(f"Processing url: {url}, save_dir: {save_dir}, lang: {lang}, response_format: {response_format}")
 
-    from main import get_settings
-
     settings = get_settings()
-    proxy_servers = get_settings().proxy_servers.split(",") if settings.proxy_servers and settings.use_proxy else None
+    proxy_servers = settings.proxy_servers.split(",") if settings.proxy_servers and settings.use_proxy else None
 
     logging.debug(f"Proxy servers: {proxy_servers} - using proxy: {settings.use_proxy}")
 
     loader = GenericLoader(YoutubeAudioLoader([url], save_dir, proxy_servers),
-                           OpenAIWhisperParser(api_key=get_settings().openai_api_key,
-                                               language=lang.value,
-                                               response_format=convert_response_format(response_format),
-                                               temperature=0
-                                               ))
+                           OpenAIWhisperParser(api_key=settings.openai_api_key,
+                                             language=lang.value,
+                                             response_format=convert_response_format(response_format),
+                                             temperature=0
+                                             ))
     docs = loader.load()
 
-    # read all docs, get page_content and concanate
+    # read all docs, get page_content and concatenate
     return " ".join([doc.page_content for doc in docs])
 
 

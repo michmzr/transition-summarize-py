@@ -10,6 +10,7 @@ from langchain_community.document_loaders.generic import GenericLoader
 from pydub import AudioSegment
 
 from app.cache import conditional_lru_cache
+from app.config import get_downloads_path
 from app.transcribe.OpenAIWhisperParser import OpenAIWhisperParser
 from app.youtube.loader import YoutubeAudioLoader
 
@@ -31,8 +32,7 @@ class WHISPER_RESPONSE_FORMAT(str, Enum):
 
 
 def downloads_path():
-    from main import get_settings
-    return get_settings().data_dir
+    return get_downloads_path()
 
 
 def convert_response_format(format: WHISPER_RESPONSE_FORMAT) -> Union[

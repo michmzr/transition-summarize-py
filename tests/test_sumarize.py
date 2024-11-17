@@ -1,6 +1,6 @@
 from app.models import SUMMARIZATION_TYPE
 from app.transcribe.transcription import LANG_CODE
-from summary.summarization import summarize
+from app.summary.summarization import summarize
 
 
 def test_summarize():

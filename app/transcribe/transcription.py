@@ -5,11 +5,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
 from typing import BinaryIO
 from typing import cast, Literal, Union
+import langsmith as ls
 
 from langchain_community.document_loaders.generic import GenericLoader
 from pydub import AudioSegment
 
 from app.cache import conditional_lru_cache
+from app.config import get_downloads_path
 from app.settings import get_settings
 from app.transcribe.OpenAIWhisperParser import OpenAIWhisperParser
 from app.youtube.loader import YoutubeAudioLoader
@@ -41,6 +43,12 @@ def convert_response_format(format: WHISPER_RESPONSE_FORMAT) -> Union[
                     Literal["json", "text", "srt", "verbose_json", "vtt"], None], format.value)
 
 
+@ls.traceable(
+    run_type="llm",
+    name="Transcription",
+    tags=["yt", "transcription"],
+    metadata={"flow": "transcription"}
+)
 @conditional_lru_cache
 def yt_transcribe(url: str,
                   save_dir: str,
@@ -74,7 +82,12 @@ def yt_transcribe(url: str,
     # read all docs, get page_content and concatenate
     return " ".join([doc.page_content for doc in docs])
 
-
+@ls.traceable(
+    run_type="llm",
+    name="Transcription from file",
+    tags=["file", "transcription"],
+    metadata={"flow": "transcription"}
+)
 def transcribe(file: BinaryIO,
                lang: LANG_CODE = LANG_CODE.ENGLISH,
                response_format: WHISPER_RESPONSE_FORMAT = WHISPER_RESPONSE_FORMAT.TEXT):

@@ -43,7 +43,6 @@ logging.basicConfig(
 # Create tables
 models.Base.metadata.create_all(bind=database.engine)
 
-
 # Health api
 @app.get("/health")
 def health_check():

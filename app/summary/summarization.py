@@ -3,6 +3,7 @@ import logging
 from langchain.chains.llm import LLMChain
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
+import langsmith as ls
 
 from app.cache import conditional_lru_cache
 from app.models import SUMMARIZATION_TYPE
@@ -39,7 +40,12 @@ def get_template(type):
     }
     return templates[type]
 
-
+@ls.traceable(
+    run_type="llm",
+    name="Summarization",
+    tags=["summarization"],
+    metadata={"flow": "summarization"}
+)
 @conditional_lru_cache
 def summarize(text: str, type: SUMMARIZATION_TYPE, lang: LANG_CODE):
     logging.info(f"Summarizing text with type: ${type}, lang code: {lang.value}")

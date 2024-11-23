@@ -1,0 +1,40 @@
+name: Deploy
+
+on:
+  release:
+    types: [ published ]
+
+permissions:
+  contents: read
+
+jobs:
+  test_and_build:
+    uses: ./.github/workflows/setup-test.yml
+    secrets:
+      JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PROXY_SERVERS: ${{ secrets.PROXY_SERVERS }}
+
+  deploy:
+    needs: test_and_build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          eval "$(ssh-agent -s)"
+          echo "${{ secrets.SSH_PASSPHRASE }}" | ssh-add ~/.ssh/id_rsa
+          ssh-add -l
+
+          ssh -o StrictHostKeyChecking=no av-summarizer-py@${{ secrets.SSH_HOST }} "echo SSH connection successful; pwd; source ~/deploy.sh"
+      
+      - name: Health check
+        run: |
+          echo "Waiting for 30 seconds before healthcheck"
+          sleep 30
+          echo "Performing healthcheck..."
+          wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 10 --http-user=${{secrets.APP_BASIC_USERNAME}} --http-password=${{secrets.APP_BASIC_PASS}} ${{ secrets.APP_URL }}/health -O /dev/null

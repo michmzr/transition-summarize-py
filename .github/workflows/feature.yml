@@ -1,0 +1,20 @@
+name: Feature
+
+on:
+  push:
+    branches: [ "issue-*"]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+  pages: write
+  id-token: write
+
+jobs:
+  test:
+    uses: ./.github/workflows/setup-test.yml
+    secrets:
+      JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PROXY_SERVERS: ${{ secrets.PROXY_SERVERS }}

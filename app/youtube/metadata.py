@@ -1,9 +1,10 @@
+import logging
 import random
 
 import yt_dlp
 
-from models import YoutubeTranscriptionMetadata, YoutubeMetadata
-from youtube.helpers import proxy_servers
+from app.models import YoutubeTranscriptionMetadata, YoutubeMetadata
+from app.youtube.helpers import proxy_servers
 
 
 def get_youtube_metadata(video_url: str):
@@ -51,6 +52,8 @@ def get_youtube_metadata(video_url: str):
 
 
 def extract_yt_info(video_url):
+    logging.info(f"Extracting YT info {video_url}....")
+
     ydl_opts = {
         'skip_download': True,  # We don't want to download the video
         'quiet': True,  # Suppress yt-dlp output
@@ -58,7 +61,9 @@ def extract_yt_info(video_url):
 
     proxys = proxy_servers()
     if proxys:
-        ydl_opts["proxy"] = random.choice(proxys)
+        proxy = random.choice(proxys)
+        ydl_opts["proxy"] = proxy
+        logging.debug(f"Using '{proxy}' to get YT details.")
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(video_url, download=False)

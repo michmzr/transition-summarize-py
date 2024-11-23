@@ -1,7 +1,6 @@
 import unittest
 
-from youtube.metadata import get_youtube_metadata
-
+from app.youtube.metadata import get_youtube_metadata
 
 class YTMetadata(unittest.TestCase):
     def test_get_video_metadata(self):

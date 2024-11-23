@@ -3,10 +3,12 @@ import logging
 from langchain.chains.llm import LLMChain
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
+import langsmith as ls
 
-from cache import conditional_lru_cache
-from models import SUMMARIZATION_TYPE
-from transcribe.transcription import LANG_CODE
+from app.cache import conditional_lru_cache
+from app.models import SUMMARIZATION_TYPE
+from app.settings import get_settings
+from app.transcribe.transcription import LANG_CODE
 
 
 def get_template(type):
@@ -38,17 +40,25 @@ def get_template(type):
     }
     return templates[type]
 
-
+@ls.traceable(
+    run_type="llm",
+    name="Summarization",
+    tags=["summarization"],
+    metadata={"flow": "summarization"}
+)
 @conditional_lru_cache
 def summarize(text: str, type: SUMMARIZATION_TYPE, lang: LANG_CODE):
     logging.info(f"Summarizing text with type: ${type}, lang code: {lang.value}")
+
+    if not text:
+        logging.warning("Text is empty, returning empty string")
+        return ""
 
     # Define prompt
     prompt_template = get_template(type)
     prompt = PromptTemplate.from_template(prompt_template)
 
     # Define LLM chain
-    from main import get_settings
     llm = ChatOpenAI(temperature=0.1, model_name="gpt-4o-mini", api_key=get_settings().openai_api_key)
     llm_chain = LLMChain(llm=llm, prompt=prompt)
 

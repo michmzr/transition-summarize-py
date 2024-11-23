@@ -7,6 +7,8 @@ from langchain_community.document_loaders.base import BaseBlobParser
 from langchain_community.document_loaders.blob_loaders import Blob
 from langchain_community.utils.openai import is_openai_v1
 from langchain_core.documents import Document
+from langsmith import traceable
+from langsmith.wrappers import wrap_openai
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +59,10 @@ class OpenAIWhisperParser(BaseBlobParser):
         }
         return {k: v for k, v in params.items() if v is not None}
 
+    @traceable(
+        run_type="llm",
+        name="OpenAIWhisper",
+    )
     def lazy_parse(self, blob: Blob) -> Iterator[Document]:
         """Lazily parse the blob."""
 
@@ -78,7 +84,7 @@ class OpenAIWhisperParser(BaseBlobParser):
 
         if is_openai_v1():
             # api_key optional, defaults to `os.environ['OPENAI_API_KEY']`
-            client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
+            client = wrap_openai(openai.OpenAI(api_key=self.api_key, base_url=self.base_url))
         else:
             # Set the API key if provided
             if self.api_key:
@@ -96,7 +102,7 @@ class OpenAIWhisperParser(BaseBlobParser):
 
         # Split the audio into chunk_duration_ms chunks
         for split_number, i in enumerate(range(0, len(audio), chunk_duration_ms)):
-            # Audio chunk
+            # Audio chunks
             chunk = audio[i: i + chunk_duration_ms]
             # Skip chunks that are too short to transcribe
             if chunk.duration_seconds <= self.chunk_duration_threshold:
@@ -241,6 +247,7 @@ class OpenAIWhisperParserLocal(BaseBlobParser):
                     "Therefore whisper model will use default mode for decoder"
                 )
 
+    @traceable
     def lazy_parse(self, blob: Blob) -> Iterator[Document]:
         """Lazily parse the blob."""
 

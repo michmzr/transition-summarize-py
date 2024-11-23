@@ -5,13 +5,16 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
 from typing import BinaryIO
 from typing import cast, Literal, Union
+import langsmith as ls
 
 from langchain_community.document_loaders.generic import GenericLoader
 from pydub import AudioSegment
 
-from cache import conditional_lru_cache
-from transcribe.OpenAIWhisperParser import OpenAIWhisperParser
-from youtube.loader import YoutubeAudioLoader
+from app.cache import conditional_lru_cache
+from app.config import get_downloads_path
+from app.settings import get_settings
+from app.transcribe.OpenAIWhisperParser import OpenAIWhisperParser
+from app.youtube.loader import YoutubeAudioLoader
 
 TEN_MINUTES = 10 * 60 * 1000
 AUDIO_SPLIT_BYTES = 24000000
@@ -31,8 +34,7 @@ class WHISPER_RESPONSE_FORMAT(str, Enum):
 
 
 def downloads_path():
-    from main import get_settings
-    return get_settings().data_dir
+    return get_downloads_path()
 
 
 def convert_response_format(format: WHISPER_RESPONSE_FORMAT) -> Union[
@@ -41,6 +43,12 @@ def convert_response_format(format: WHISPER_RESPONSE_FORMAT) -> Union[
                     Literal["json", "text", "srt", "verbose_json", "vtt"], None], format.value)
 
 
+@ls.traceable(
+    run_type="llm",
+    name="Transcription",
+    tags=["yt", "transcription"],
+    metadata={"flow": "transcription"}
+)
 @conditional_lru_cache
 def yt_transcribe(url: str,
                   save_dir: str,
@@ -51,30 +59,35 @@ def yt_transcribe(url: str,
     Transcribe the videos to text
 
     inspiration: https://python.langchain.com/docs/integrations/document_loaders/youtube_audio/
+    :param lang:
+    :param response_format:
     :param url: yt video url
     :param save_dir:
     """
     logging.info(f"Processing url: {url}, save_dir: {save_dir}, lang: {lang}, response_format: {response_format}")
 
-    from main import get_settings
-
     settings = get_settings()
-    proxy_servers = get_settings().proxy_servers.split(",") if settings.proxy_servers and settings.use_proxy else None
+    proxy_servers = settings.proxy_servers.split(",") if settings.proxy_servers and settings.use_proxy else None
 
     logging.debug(f"Proxy servers: {proxy_servers} - using proxy: {settings.use_proxy}")
 
     loader = GenericLoader(YoutubeAudioLoader([url], save_dir, proxy_servers),
-                           OpenAIWhisperParser(api_key=get_settings().openai_api_key,
-                                               language=lang.value,
-                                               response_format=convert_response_format(response_format),
-                                               temperature=0
-                                               ))
+                           OpenAIWhisperParser(api_key=settings.openai_api_key,
+                                             language=lang.value,
+                                             response_format=convert_response_format(response_format),
+                                             temperature=0
+                                             ))
     docs = loader.load()
 
-    # read all docs, get page_content and concanate
+    # read all docs, get page_content and concatenate
     return " ".join([doc.page_content for doc in docs])
 
-
+@ls.traceable(
+    run_type="llm",
+    name="Transcription from file",
+    tags=["file", "transcription"],
+    metadata={"flow": "transcription"}
+)
 def transcribe(file: BinaryIO,
                lang: LANG_CODE = LANG_CODE.ENGLISH,
                response_format: WHISPER_RESPONSE_FORMAT = WHISPER_RESPONSE_FORMAT.TEXT):
@@ -82,6 +95,7 @@ def transcribe(file: BinaryIO,
     Transcribe audio file to text
 
     inspiration: https://python.langchain.com/docs/integrations/document_loaders/youtube_audio/
+    :param response_format:
     :param lang: Lang code
     :param file: audio file
     """
@@ -134,6 +148,7 @@ def small_file(file: BinaryIO,
                response_format: WHISPER_RESPONSE_FORMAT = WHISPER_RESPONSE_FORMAT.TEXT
                ):
     """
+    :param response_format:
     :param file: binary file
     :param lang:  language: The language of the input audio. Supplying the input language in
               [ISO-639-1](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) format will
@@ -143,8 +158,8 @@ def small_file(file: BinaryIO,
     logging.info(
         f"Transcribing audio file using openai api: {file}, with lang: {lang}, response_format: {response_format}")
 
-    from main import client
-    transcription = client.audio.transcriptions.create(
+    from app.settings import client_openai
+    transcription = client_openai.audio.transcriptions.create(
         model="whisper-1",
         file=file,
         language=lang.value,

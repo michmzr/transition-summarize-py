@@ -1,15 +1,38 @@
-FROM python:3
-WORKDIR /code
+# Use an official Python runtime as a parent image
+FROM python:3.12-slim
 
-# Copy the Pipfile and Pipfile.lock
-COPY ./Pipfile /code/Pipfile
-COPY ./Pipfile.lock /code/Pipfile.lock
-COPY ./app /code/app
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
 
+# Install system dependencies and Rust
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    pkg-config \
+    libssl-dev \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+    && . $HOME/.cargo/env
+
+#rust & cargo required by jitter package
+
+# Add Rust to PATH
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir --upgrade pipenv
+
+# Install Python packages
 RUN pipenv install --system --deploy
 
 # Expose the port
 EXPOSE 8086
 
-CMD ["fastapi", "run", "app/main.py", "--port", "8086", "--proxy-headers"]
+# Set the working directory
+WORKDIR /app
+
+# Copy the current directory contents into the container
+COPY . /app/
+
+# Command to run the application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8086"]

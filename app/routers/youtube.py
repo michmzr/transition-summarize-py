@@ -154,6 +154,6 @@ def yt_details(
     Raises:
         HTTPException: If there's an error fetching the video metadata.
     """
-    logging.info(f"YT video details: {request.url}")
+    logging.info(f"Getting YT video details: {request.url}")
 
     return get_youtube_metadata(request.url)

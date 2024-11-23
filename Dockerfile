@@ -3,6 +3,18 @@ FROM python:3.12-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
+ENV LANG C.UTF-8
+ENV LC_ALL C.UTF-8
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONFAULTHANDLER 1
+
+WORKDIR /app
+
+# Copy the project files into the container
+COPY Pipfile Pipfile.lock /app/
+
+# Copy the current directory contents into the container
+COPY . /app/
 
 # Install system dependencies and Rust
 RUN apt-get update && apt-get install -y \
@@ -25,14 +37,9 @@ RUN pip install --no-cache-dir --upgrade pipenv
 # Install Python packages
 RUN pipenv install --system --deploy
 
+
 # Expose the port
 EXPOSE 8086
-
-# Set the working directory
-WORKDIR /app
-
-# Copy the current directory contents into the container
-COPY . /app/
 
 # Command to run the application
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8086"]

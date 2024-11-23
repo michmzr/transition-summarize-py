@@ -9,7 +9,7 @@ updates:
       time: "09:00"
       timezone: "Europe/Warsaw"
     open-pull-requests-limit: 1
-    target-branch: "master"
+    target-branch: "main"
     labels:
       - "dependencies"
       - "python"
@@ -29,7 +29,7 @@ updates:
       time: "09:00"
       timezone: "Europe/Warsaw"
     open-pull-requests-limit: 1
-    target-branch: "master"
+    target-branch: "main"
     labels:
       - "dependencies"
       - "github-actions"
@@ -46,7 +46,7 @@ updates:
       time: "09:00"
       timezone: "Europe/Warsaw"
     open-pull-requests-limit: 1
-    target-branch: "master"
+    target-branch: "main"
     labels:
       - "dependencies"
       - "docker"

@@ -9,7 +9,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="allow"  # Allow extra fields not defined in the Settings class
+    )
 
     # Basic settings
     disable_cache: bool = False
@@ -31,15 +34,16 @@ class Settings(BaseSettings):
     data_dir: str = os.path.join(base_dir, '/data/downloads')
 
     # Database settings
-    database_username: str = Field(default="postgres", env="DATABASE_USERNAME")
-    database_password: str = Field(default="postgres", env="DATABASE_PASSWORD")
-    database_name: str = Field(default="test_db", env="DATABASE_NAME")
+    database_username: str = Field(default="postgres", env="POSTGRES_USERNAME", alias="DATABASE_USERNAME")
+    database_password: str = Field(default="postgres", env="POSTGRES_PASSWORD", alias="DATABASE_PASSWORD")
+    database_name: str = Field(default="test_db", env="POSTGRES_NAME", alias="DATABASE_NAME")
     database_url: str = Field(
         default="postgresql://postgres:postgres@localhost:5432/test_db",
-        env="DATABASE_URL"
+        env="POSTGRES_URL",
+        alias="DATABASE_URL"
     )
-    database_host: str = Field(default="localhost", env="DATABASE_HOST")
-    database_port: int = Field(default=5432, env="DATABASE_PORT")
+    database_host: str = Field(default="localhost", env="POSTGRES_HOST", alias="DATABASE_HOST")
+    database_port: int = Field(default=5432, env="POSTGRES_PORT", alias="DATABASE_PORT")
 
     # JWT settings
     secret_key: str = Field(env="SECRET_KEY")

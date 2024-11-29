@@ -82,12 +82,12 @@ jobs:
           cat coverage.xml || echo "Cannot read coverage.xml"
         env:
           PYTHONPATH: ${{ github.workspace }}
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
-          DATABASE_USERNAME: postgres
-          DATABASE_PASSWORD: postgres
-          DATABASE_HOST: localhost
-          DATABASE_PORT: 5432
-          DATABASE_NAME: test_db
+          POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/test_db
+          POSTGRES_USERNAME: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_NAME: test_db
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PROXY_SERVERS: ${{ secrets.PROXY_SERVERS }}
           SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}

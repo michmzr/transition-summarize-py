@@ -37,9 +37,11 @@ RUN pip install --no-cache-dir --upgrade pipenv
 # Install Python packages
 RUN pipenv install --system --deploy
 
+# Copy the start script into the container
+COPY start.sh /app/start.sh
 
 # Expose the port
 EXPOSE 8086
 
-# Command to run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8086"]
+# Set the entry point to the start script
+CMD ["/app/start.sh"]

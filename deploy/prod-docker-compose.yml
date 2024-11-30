@@ -10,7 +10,9 @@ services:
     volumes:
       - /var/lib/av-summarizer-py/data:/data/downloads
     restart: unless-stopped
-    env_file: "av-summ.env"  
+    env_file: "av-summ.env"
+    labels:
+      io.portainer.accesscontrol.public  
     depends_on:
       - db
 
@@ -19,6 +21,8 @@ services:
     env_file: "av-summ.env"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    labels:
+      io.portainer.accesscontrol.public
     ports:
       - "5432:5432"
 

@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     data_dir: str = os.path.join(base_dir, '/data/downloads')
 
     # Database settings
-    database_username: str = Field(default="postgres", env="POSTGRES_USERNAME", alias="DATABASE_USERNAME")
+    database_username: str = Field(default="postgres", env="POSTGRES_USER", alias="DATABASE_USERNAME")
     database_password: str = Field(default="postgres", env="POSTGRES_PASSWORD", alias="DATABASE_PASSWORD")
     database_name: str = Field(default="test_db", env="POSTGRES_NAME", alias="DATABASE_NAME")
     database_url: str = Field(

@@ -19,3 +19,14 @@ docker-compose --env-file ./.env -f ./deploy/docker-compose.yml up
 ```bash
 alembic upgrade head
 ```
+
+## DB 
+**Init DB:**
+```bash
+alembic stamp head
+```
+
+**New migration:**
+```bash
+alembic revision --autogenerate -m "migration name"
+```

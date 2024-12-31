@@ -1,9 +1,10 @@
+import enum
 import uuid
-from datetime import datetime
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Integer, Enum
+from datetime import datetime, timezone
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Integer, Enum, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import DeclarativeBase
-import enum
+
 
 class Base(DeclarativeBase):
     pass
@@ -26,6 +27,7 @@ class ProcessingType(enum.Enum):
 class ProcessingResultFormat(enum.Enum):
     TEXT = "text"
     SRT = "srt"
+    JSON = "json"
 
 class UserDB(Base):
     __tablename__ = "users"
@@ -38,8 +40,8 @@ class UserDB(Base):
 
     __table_args__ = {'extend_existing': True}
 
-class RequestDB(Base):
-    __tablename__ = "requests"
+class UserRequestDB(Base):
+    __tablename__ = "urequests"
 
     id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
@@ -49,30 +51,32 @@ class RequestDB(Base):
 
     request_data = Column(JSONB)  # Use JSONB for better performance and flexibility
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = {'extend_existing': True}
 
 class ProcessingResultDB(Base):
-    __tablename__ = "transcriptions"
+    __tablename__ = "processing_results"
 
     id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
 
+    request_id = Column(UUID(as_uuid=True), ForeignKey("urequests.id"))
+
     type = Column(Enum(ProcessingType), nullable=False)
 
-    result = Column(String)  # Consider using a more appropriate type if the result is large
+    result = Column(Text)  # Changed from String to Text to handle large text data
     result_format = Column(Enum(ProcessingResultFormat), nullable=False)
     
     lang = Column(String)  # Consider using an ENUM if the languages are fixed
-    response_format = Column(String)  # Consider using an ENUM if the formats are fixed
-
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     source_file = Column(String, nullable=True)
     source_file_size = Column(Integer, nullable=True)
     source_file_type = Column(String, nullable=True)
 
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
     __table_args__ = {'extend_existing': True}

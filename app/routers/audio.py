@@ -9,7 +9,9 @@ from starlette.responses import PlainTextResponse
 
 from app.auth import get_current_active_user
 from app.models import SUMMARIZATION_TYPE, SummaryResult, TranscriptionResult
-from app.schema.pydantic_models import User
+from app.processing.processing import register_new_process, update_process_status
+from app.schema.models import RequestStatus, RequestType, ProcessingResultFormat
+from app.schema.pydantic_models import CompletedProcess, User
 from app.summary.summarization import summarize
 from app.transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT, transcribe
 
@@ -195,3 +197,26 @@ def transcribe_file(save_path: str, file: str):
 #     logging.info("Completed processing audio file. Returning summary.")
 #
 #     return {"status": "success", "files": results}  # Return results in JSON format
+
+@a_router.post("/process")
+async def test_new_process(request: Request, current_user: User = Depends(get_current_active_user)):
+    request_data = await request.json()  # Await the coroutine to get JSON data
+    reg_request = register_new_process(
+        current_user, 
+        RequestType.AUDIO, 
+        request_data
+    )
+
+    update_process_status(
+        reg_request.id,
+
+        CompletedProcess(
+            user_id=current_user.id,
+            status=RequestStatus.COMPLETED,
+            result="test very long text lorem ipsum dolor sit amet",
+            result_format=ProcessingResultFormat.TEXT,
+            lang=LANG_CODE.POLISH
+        )
+    )
+
+    return {"status": "success"}

@@ -2,6 +2,9 @@ import uuid
 
 from pydantic import BaseModel, EmailStr
 
+from app.schema.models import ProcessingResultFormat, RequestStatus
+from app.transcribe.transcription import LANG_CODE
+
 
 class UserBase(BaseModel):
     username: str
@@ -31,3 +34,20 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: str | None = None
+
+
+class CompletedProcess(BaseModel):
+    status: RequestStatus
+
+    result: str
+    result_format: ProcessingResultFormat
+
+    lang: LANG_CODE
+
+    user_id: uuid.UUID
+
+    # optional fields
+    source_file: str | None = None
+    source_file_size: int | None = None
+    source_file_type: str | None = None
+    

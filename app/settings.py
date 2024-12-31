@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # Basic settings
     disable_cache: bool = False
     logging_level: int = logging.DEBUG
-    openai_api_key: str = Field(default="", env="OPENAI_API_KEY")
+    openai_api_key: str = Field(alias="OPENAI_API_KEY")
     use_proxy: bool = True
 
     # LangChain settings
@@ -34,27 +34,18 @@ class Settings(BaseSettings):
     data_dir: str = os.path.join(base_dir, '/data/downloads')
 
     # Database settings
-    database_username: str = Field(default="postgres", env="POSTGRES_USER", alias="DATABASE_USERNAME")
-    database_password: str = Field(default="postgres", env="POSTGRES_PASSWORD", alias="DATABASE_PASSWORD")
-    database_name: str = Field(default="test_db", env="POSTGRES_NAME", alias="DATABASE_NAME")
-    database_url: str = Field(
-        default="postgresql://postgres:postgres@localhost:5432/test_db",
-        env="POSTGRES_URL",
-        alias="DATABASE_URL"
-    )
-    database_host: str = Field(default="localhost", env="POSTGRES_HOST", alias="DATABASE_HOST")
-    database_port: int = Field(default=5432, env="POSTGRES_PORT", alias="DATABASE_PORT")
+    database_url: str = Field(alias="POSTGRES_URL")
 
     # JWT settings
-    secret_key: str = Field(env="SECRET_KEY")
+    secret_key: str = Field(alias="SECRET_KEY")
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
     # Environment
-    is_local: bool = Field(default=False, env="IS_LOCAL")
+    is_local: bool = Field(default=False, alias="IS_LOCAL")
 
     # Registration
-    enable_registration: bool = Field(default=True, env="ENABLE_REGISTRATION")
+    enable_registration: bool = Field(default=True, alias="ENABLE_REGISTRATION")
 
 
 @lru_cache()

@@ -156,7 +156,7 @@ def small_file(file: BinaryIO,
     :return:
     """
     logging.info(
-        f"Transcribing audio file using openai api: {file}, with lang: {lang}, response_format: {response_format}")
+        f"Transcribing audio file using openai api: '{file}', with lang: '{lang}', response_format: '{response_format}'")
 
     from app.settings import client_openai
     transcription = client_openai.audio.transcriptions.create(

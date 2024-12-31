@@ -2,6 +2,7 @@ import logging
 import os
 import tempfile
 from typing import Annotated
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from fastapi import UploadFile, APIRouter, Response, status, Form, Request, Depends
 from starlette.responses import PlainTextResponse
@@ -148,3 +149,49 @@ def transcribe_uploaded_file(uploaded_file: UploadFile,
     os.unlink(temp.name)
 
     return transcription
+
+def list_files_with_file_extension(directory, file_extension):
+    return [f for f in os.listdir(directory) if f.endswith(file_extension)]
+
+def transcribe_file(save_path: str, file: str):
+    print(f"Transcribing file '{file}'.....")
+
+    # Open the file in binary mode
+    logging.debug(f"Reading audio file '{file}'...")
+    with open(file, 'rb') as audio_file:
+        transcription = transcribe(audio_file, LANG_CODE.POLISH, WHISPER_RESPONSE_FORMAT.SRT)  # Pass the file object
+
+    output = os.path.splitext(os.path.basename(file))[0] + ".txt"  # Get filename without extension
+    logging.info(f"Saving ${output}....")
+    file_name = os.path.join(save_path, output)  # Use os.path.join for better path handling
+    with open(file_name, "x") as f:
+        f.write(transcription)
+
+    return True
+
+
+# @a_router.get("/mentoring")
+# def get_transcribe_mentoringfiles():
+#     directory = "/Users/michmzr/Library/CloudStorage/OneDrive-Osobisty/4.Archives/Mentoring/09\'22/"
+#
+#     files = list_files_with_file_extension(directory, ".wav")
+#     logging.debug(files)
+#
+#     results = []  # List to store transcription results
+#
+#     with ThreadPoolExecutor() as executor:
+#         futures = {executor.submit(transcribe_file, directory, directory + file): file for file in files}
+#
+#         for future in as_completed(futures):
+#             file = futures[future]
+#             try:
+#                 result = future.result()  # Get the result of the transcribe_file function
+#                 results.append({"file": file, "transcription": result})  # Store result
+#                 print(f"Transcribed {file}: {result}")
+#             except Exception as e:
+#                 print(f"Error transcribing {file}: {e}")
+#                 results.append({"file": file, "error": str(e)})  # Store error
+#
+#     logging.info("Completed processing audio file. Returning summary.")
+#
+#     return {"status": "success", "files": results}  # Return results in JSON format

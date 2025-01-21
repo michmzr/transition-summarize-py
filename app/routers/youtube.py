@@ -7,7 +7,9 @@ from starlette.responses import PlainTextResponse
 from app.auth import get_current_active_user
 from app.models import YtVideoSummarize, YTVideoTranscribe, YtVideoInfoRequest, YoutubeMetadata, SummaryResult, \
     TranscriptionResult
-from app.schema.pydantic_models import User
+from app.processing.processing import register_new_process, update_process_status
+from app.schema.models import RequestStatus, RequestType
+from app.schema.pydantic_models import CompletedProcess, User
 from app.summary.summarization import summarize
 from app.transcribe.transcription import yt_transcribe, WHISPER_RESPONSE_FORMAT
 from app.youtube.metadata import get_youtube_metadata
@@ -42,23 +44,53 @@ def yt_transcription(
     Raises:
         HTTPException: If there's an error during transcription.
     """
-    logging.info(f"yt transcribe - request details: {yt_request}")
+    reg_request = register_new_process(
+        current_user,
+        RequestType.FILE,
+        request.json()
+    )
+    try:
+        logging.info(f"yt transcribe - request details: {yt_request}")
 
-    save_dir = save_dir_path(yt_request.url)
-    result = yt_transcribe(
-        yt_request.url,
-        save_dir,
-        yt_request.lang,
-        yt_request.response_format)
+        save_dir = save_dir_path(yt_request.url)
+        result = yt_transcribe(
+            yt_request.url,
+            save_dir,
+            yt_request.lang,
+            yt_request.response_format)
 
-    # Get the Accept header from the request
-    accept_header = request.headers.get("Accept", "application/json")
+        update_process_status(
+            reg_request.id,
+            CompletedProcess(
+                user_id=current_user.id,
+                status=RequestStatus.COMPLETED,
+                result=result,
+                result_format=yt_request.response_format,
+                lang=yt_request.lang
+            )
+        )
 
-    # If the Accept header is "text/plain", return plain text
-    if accept_header == "text/plain":
-        return PlainTextResponse(result)
-    else:
-        return TranscriptionResult(result=True, error=None, transcription=result, format=yt_request.response_format)
+        # Get the Accept header from the request
+        accept_header = request.headers.get("Accept", "application/json")
+
+        # If the Accept header is "text/plain", return plain text
+        if accept_header == "text/plain":
+            return PlainTextResponse(result)
+        else:
+            return TranscriptionResult(result=True, error=None, transcription=result, format=yt_request.response_format)
+    except Exception as e:
+        logging.error(f"Error processing YouTube transcription: {str(e)}")
+        update_process_status(
+            reg_request.id,
+            CompletedProcess(
+                user_id=current_user.id,
+                status=RequestStatus.FAILED,
+                result="",
+                result_format=yt_request.response_format,
+                lang=yt_request.lang
+            )
+        )
+        return TranscriptionResult(result=False, error="Internal server error", transcription=None, format=None)
 
 
 def save_dir_path(url):
@@ -100,26 +132,56 @@ def yt_summarize(
     Raises:
         HTTPException: If there's an error during transcription or summarization.
     """
-    logging.info(f"yt summarize - Request details: {yt_request:}")
+    reg_request = register_new_process(
+        current_user,
+        RequestType.FILE,
+        request.json()
+    )
+    try:
+        logging.info(f"yt summarize - Request details: {yt_request:}")
 
-    save_dir = save_dir_path(yt_request.url)
-    transcription = yt_transcribe(yt_request.url,
-                                  save_dir,
-                                  yt_request.lang,
-                                  WHISPER_RESPONSE_FORMAT.SRT)
+        save_dir = save_dir_path(yt_request.url)
+        transcription = yt_transcribe(yt_request.url,
+                                      save_dir,
+                                      yt_request.lang,
+                                      WHISPER_RESPONSE_FORMAT.SRT)
 
-    summarization = summarize(transcription, yt_request.type, yt_request.lang)
+        summarization = summarize(transcription, yt_request.type, yt_request.lang)
 
-    logging.debug(f"yt summarize - Result: \n{summarization}")
+        logging.debug(f"yt summarize - Result: \n{summarization}")
 
-    # Get the Accept header from the request
-    accept_header = request.headers.get("Accept", "application/json")
+        update_process_status(
+            reg_request.id,
+            CompletedProcess(
+                user_id=current_user.id,
+                status=RequestStatus.COMPLETED,
+                result=summarization,
+                result_format=ProcessingResultFormat.TEXT,
+                lang=yt_request.lang
+            )
+        )
 
-    # If the Accept header is "text/plain", return plain text
-    if accept_header == "text/plain":
-        return PlainTextResponse(summarization)
-    else:
-        return SummaryResult(summary=summarization)
+        # Get the Accept header from the request
+        accept_header = request.headers.get("Accept", "application/json")
+
+        # If the Accept header is "text/plain", return plain text
+        if accept_header == "text/plain":
+            return PlainTextResponse(summarization)
+        else:
+            return SummaryResult(summary=summarization)
+    except Exception as e:
+        logging.error(f"Error processing YouTube summarization: {str(e)}")
+        update_process_status(
+            reg_request.id,
+            CompletedProcess(
+                user_id=current_user.id,
+                status=RequestStatus.FAILED,
+                result="",
+                result_format=ProcessingResultFormat.TEXT,
+                lang=yt_request.lang
+            )
+        )
+        return {"error": "Internal server error"}
 
 
 @yt_router.post("/details", response_model=YoutubeMetadata)
@@ -154,6 +216,38 @@ def yt_details(
     Raises:
         HTTPException: If there's an error fetching the video metadata.
     """
-    logging.info(f"Getting YT video details: {request.url}")
+    reg_request = register_new_process(
+        current_user,
+        RequestType.FILE,
+        request.json()
+    )
+    try:
+        logging.info(f"Getting YT video details: {request.url}")
 
-    return get_youtube_metadata(request.url)
+        metadata = get_youtube_metadata(request.url)
+
+        update_process_status(
+            reg_request.id,
+            CompletedProcess(
+                user_id=current_user.id,
+                status=RequestStatus.COMPLETED,
+                result=str(metadata),
+                result_format=ProcessingResultFormat.JSON,
+                lang=LANG_CODE.ENGLISH
+            )
+        )
+
+        return metadata
+    except Exception as e:
+        logging.error(f"Error fetching YouTube video details: {str(e)}")
+        update_process_status(
+            reg_request.id,
+            CompletedProcess(
+                user_id=current_user.id,
+                status=RequestStatus.FAILED,
+                result="",
+                result_format=ProcessingResultFormat.JSON,
+                lang=LANG_CODE.ENGLISH
+            )
+        )
+        return {"error": "Internal server error"}

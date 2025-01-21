@@ -1,15 +1,17 @@
+from fastapi import Request
 from app.schema.pydantic_models import CompletedProcess, User
-from app.schema.models import ProcessingResultDB, UserRequestDB, RequestType, RequestStatus
+from app.schema.models import ProcessArtifactDB, UserProcessDB, RequestType, RequestStatus
 import logging
 from app.database import SessionLocal
+import uuid
 
 
-def register_new_process(user: User, request_type: RequestType,request_data: dict):
-    logging.info(f"Registering new process for user {user.id} with request data {request_data}")
+def register_new_process(user: User, request_type: RequestType, request: Request, request_data: dict):
+    logging.info(f"Registering new process for user {user.id} with request data {request}")
 
     db = SessionLocal()
     try:
-        new_process = UserRequestDB(
+        new_process = UserProcessDB(
             user_id=user.id,
             type=request_type,
             status=RequestStatus.PENDING,
@@ -30,14 +32,16 @@ def update_process_status(process_id: str, completed_process: CompletedProcess):
 
     db = SessionLocal()
     try:
-        request = db.query(UserRequestDB).filter(UserRequestDB.id == process_id).first()
+        process_uuid = uuid.UUID(process_id)
+        
+        request = db.query(UserProcessDB).filter(UserProcessDB.id == process_uuid).first()
         if not request:
             raise ValueError(f"Process {process_id} not found")
         
         request.status = completed_process.status
 
         if completed_process.result:
-            result = ProcessingResultDB(
+            result = ProcessArtifactDB(
                 request_id=request.id,
                 result=completed_process.result,
                 result_format=completed_process.result_format,

@@ -2,7 +2,7 @@ import uuid
 
 from pydantic import BaseModel, EmailStr
 
-from app.schema.models import ProcessingResultFormat, RequestStatus
+from app.schema.models import ProcessArtifactFormat, RequestStatus
 from app.transcribe.transcription import LANG_CODE
 
 
@@ -40,7 +40,7 @@ class CompletedProcess(BaseModel):
     status: RequestStatus
 
     result: str
-    result_format: ProcessingResultFormat
+    result_format: ProcessArtifactFormat
 
     lang: LANG_CODE
 

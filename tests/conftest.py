@@ -3,6 +3,9 @@ import sys
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from testcontainers.postgres import PostgresContainer
 
 # Get the absolute path of the project root directory
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -26,3 +29,23 @@ def setup_test_db():
         db.commit()
     finally:
         db.close()
+
+@pytest.fixture(scope="session")
+def postgres_container():
+    with PostgresContainer("postgres:latest") as postgres:
+        yield postgres
+
+@pytest.fixture(scope="session")
+def db_url(postgres_container):
+    return postgres_container.get_connection_url()
+
+@pytest.fixture(scope="session")
+def engine(db_url):
+    return create_engine(db_url)
+
+@pytest.fixture(scope="function")
+def db_session(engine):
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    yield session
+    session.close()

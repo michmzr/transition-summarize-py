@@ -66,3 +66,14 @@ alembic upgrade head
 ```bash
 uvicorn main:app --reload
 ```
+
+## Tests
+### Integration Tests
+```bash
+pipenv run pytest tests/integration -v
+```
+
+**Run with coverage:**
+```bash
+pipenv run pytest tests/integration -v --cov=app --cov-report=term-missing
+```

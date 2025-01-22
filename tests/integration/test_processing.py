@@ -1,7 +1,8 @@
+import os
 import uuid
 import pytest
 from testcontainers.postgres import PostgresContainer
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 import alembic.config
 
@@ -19,32 +20,6 @@ from app.schema.models import (
 from app.processing.processing import update_process_status, CompletedProcess
 
 class TestProcessingIntegration:
-    @pytest.fixture(scope="class")
-    def postgres_container(self):
-        with PostgresContainer("postgres:latest") as postgres:
-            yield postgres
-
-    @pytest.fixture(scope="class")
-    def db_engine(self, postgres_container):
-        connection_url = postgres_container.get_connection_url()
-        engine = create_engine(connection_url)
-        
-        # Run migrations
-        alembicArgs = [
-            '--raiseerr',
-            'upgrade', 'head',
-        ]
-        alembic.config.main(argv=alembicArgs)
-        
-        return engine
-
-    @pytest.fixture
-    def db_session(self, db_engine):
-        Session = sessionmaker(bind=db_engine)
-        session = Session()
-        yield session
-        session.close()
-
     @pytest.fixture
     def test_user_id(self):
         return uuid.uuid4()
@@ -54,14 +29,21 @@ class TestProcessingIntegration:
         request = UserRequestDB(
             id=uuid.uuid4(),
             user_id=test_user_id,
-            type=RequestStatus.PENDING,
-            status=RequestStatus.PENDING,
-            source_type="file",
+            type=RequestStatus.PROCESSING,
+            status=RequestStatus.PROCESSING,
+            source_type=UserProcessSourceType.FILE,
             source_metadata={"filename": "test.mp3"}
         )
         db_session.add(request)
         db_session.commit()
         return request
+
+    @pytest.fixture(autouse=True)
+    def setup(self, db_session):
+        """Ensure database is clean for each test"""
+        yield
+        # Cleanup after each test
+        db_session.rollback()
 
     def test_given_pending_request_when_process_completes_successfully_then_status_and_result_are_updated(
         self, db_session, test_request, test_user_id

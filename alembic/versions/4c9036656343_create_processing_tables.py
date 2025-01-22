@@ -19,7 +19,19 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-# Create enum types if they don't exist
+    # Drop existing enum types if they exist
+    op.execute("""
+        DO $$ 
+        BEGIN
+            DROP TYPE IF EXISTS requesttype CASCADE;
+            DROP TYPE IF EXISTS requeststatus CASCADE;
+            DROP TYPE IF EXISTS processartifacttype CASCADE;
+            DROP TYPE IF EXISTS processartifactformat CASCADE;
+            DROP TYPE IF EXISTS userprocesssourcetype CASCADE;
+        END $$;
+    """)
+
+    # Create enum types
     for enum_name, enum_values in [
         ('requesttype', "'audio', 'text', 'file', 'youtube'"),
         ('requeststatus', "'pending', 'processing', 'completed', 'failed'"),
@@ -27,22 +39,7 @@ def upgrade() -> None:
         ('processartifactformat', "'text', 'srt', 'json'"),
         ('userprocesssourcetype', "'file', 'url'")
     ]:
-        op.execute(f"""
-            DO $$ 
-            BEGIN 
-                IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '{enum_name}') THEN
-                    CREATE TYPE {enum_name} AS ENUM ({enum_values});
-                END IF;
-            END $$;
-        """)
-
-
-    # Create enum types first
-    op.execute("CREATE TYPE requesttype AS ENUM ('audio', 'text', 'file', 'youtube')")
-    op.execute("CREATE TYPE requeststatus AS ENUM ('pending', 'processing', 'completed', 'failed')")
-    op.execute("CREATE TYPE processartifacttype AS ENUM ('transcription', 'summary')")
-    op.execute("CREATE TYPE processartifactformat AS ENUM ('text', 'srt', 'json')")
-    op.execute("CREATE TYPE userprocesssourcetype AS ENUM ('file', 'url')")
+        op.execute(f"CREATE TYPE {enum_name} AS ENUM ({enum_values})")
 
     # Create uprocess table
     op.create_table(

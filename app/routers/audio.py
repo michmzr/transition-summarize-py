@@ -8,7 +8,7 @@ from fastapi import UploadFile, APIRouter, Response, status, Form, Request, Depe
 from starlette.responses import PlainTextResponse
 
 from app.auth import get_current_active_user
-from app.models import SUMMARIZATION_TYPE, SummaryResult, TranscriptionResult
+from app.models import SUMMARIZATION_TYPE, SummaryResult, ApiProcessingResult
 from app.processing.processing import complete_process, process_failed, register_new_process, register_process_artifact, update_process_status
 from app.schema.models import ProcessArtifactType, RequestStatus, RequestType, ProcessArtifactFormat
 from app.schema.pydantic_models import CompletedProcess, User
@@ -23,7 +23,7 @@ a_router = APIRouter(
     dependencies=[Depends(get_current_active_user)]
 )
 
-@a_router.post("/transcribe", response_model=TranscriptionResult)
+@a_router.post("/transcribe", response_model=ApiProcessingResult)
 def audio_trans(
         uploaded_file: UploadFile,
         lang: Annotated[LANG_CODE, Form()],
@@ -59,21 +59,17 @@ def audio_trans(
         if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video"):
             update_process_status(process_id, "failed", "Invalid file type")
             response.status_code = status.HTTP_400_BAD_REQUEST
-            return TranscriptionResult(
+            return ApiProcessingResult(
                 result=False,
                 error="Invalid file type. Only audio files are accepted",
-                transcription=None,
-                format=None
             )
 
         if not uploaded_file.filename.endswith(VALID_AUDIO_EXTENSIONS):
             update_process_status(process_id, "failed", f"Invalid file extension")
 
             response.status_code = status.HTTP_400_BAD_REQUEST
-            return TranscriptionResult(result=False,
+            return ApiProcessingResult(result=False,
                                     error=f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted",
-                                    transcription=None,
-                                    format=None
                                     )
         
         process_id = register_new_process(
@@ -104,7 +100,7 @@ def audio_trans(
         if accept_header == "text/plain":
             return PlainTextResponse(transcription)
         else:
-            return TranscriptionResult(result=True, error=None, transcription=transcription,
+            return ApiProcessingResult(result=True, error=None, transcription=transcription,
                                     format=transcription_response_format)
     except Exception as e:
         logging.error(f"Error in audio transcribe endpoint: {str(e)}", exc_info=True)
@@ -113,11 +109,9 @@ def audio_trans(
             process_failed(process_id, str(e))
 
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-        return TranscriptionResult(
+        return ApiProcessingResult(
             result=False,
             error="An error occurred while processing the audio file",
-            transcription=None,
-            format=None
         )
 
 @a_router.post("/summary", response_model=SummaryResult)

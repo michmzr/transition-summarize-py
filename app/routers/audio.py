@@ -2,15 +2,15 @@ import logging
 import os
 import tempfile
 from typing import Annotated
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from uuid import UUID
 
 from fastapi import UploadFile, APIRouter, Response, status, Form, Request, Depends, HTTPException
 from starlette.responses import PlainTextResponse
 
 from app.auth import get_current_active_user
 from app.models import SUMMARIZATION_TYPE, SummaryResult, TranscriptionResult
-from app.processing.processing import register_new_process, update_process_status
-from app.schema.models import RequestStatus, RequestType, ProcessArtifactFormat
+from app.processing.processing import complete_process, process_failed, register_new_process, register_process_artifact, update_process_status
+from app.schema.models import ProcessArtifactType, RequestStatus, RequestType, ProcessArtifactFormat
 from app.schema.pydantic_models import CompletedProcess, User
 from app.summary.summarization import summarize
 from app.transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT, transcribe
@@ -51,10 +51,31 @@ def audio_trans(
     This endpoint accepts an audio file via multipart form-data, transcribes it to text, and returns the result.
     The transcription can be returned as plain text or JSON based on the Accept header in the request.
     """
+    logging.info(f"audio transcribe api - file name: {uploaded_file.filename}, "
+        f" content_type: {uploaded_file.content_type}, transcription response format: ${transcription_response_format}")
+    
+    process_id = None
     try:
-        logging.info(f"audio transcribe api - file name: {uploaded_file.filename}, "
-                    f" content_type: {uploaded_file.content_type}, transcription response format: ${transcription_response_format}")
+        if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video"):
+            update_process_status(process_id, "failed", "Invalid file type")
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return TranscriptionResult(
+                result=False,
+                error="Invalid file type. Only audio files are accepted",
+                transcription=None,
+                format=None
+            )
 
+        if not uploaded_file.filename.endswith(VALID_AUDIO_EXTENSIONS):
+            update_process_status(process_id, "failed", f"Invalid file extension")
+
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return TranscriptionResult(result=False,
+                                    error=f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted",
+                                    transcription=None,
+                                    format=None
+                                    )
+        
         process_id = register_new_process(
             current_user,
             RequestType.AUDIO,
@@ -66,45 +87,6 @@ def audio_trans(
                 "format": transcription_response_format}
         )
 
-        if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video"):
-            update_process_status(process_id, "failed", "Invalid file type")
-            response.status_code = status.HTTP_400_BAD_REQUEST
-
-
-            update_process_status(process_id, CompletedProcess(
-                user_id=current_user.id,
-                status=RequestStatus.FAILED,
-                result=f"Invalid file type {uploaded_file.content_type}. Only audio files are accepted",
-                result_format=transcription_response_format.value,
-                lang=lang
-            ))
-
-            return TranscriptionResult(
-                result=False,
-                error="Invalid file type. Only audio files are accepted",
-                transcription=None,
-                format=None
-            )
-
-        if not uploaded_file.filename.endswith(VALID_AUDIO_EXTENSIONS):
-            update_process_status(process_id, "failed", f"Invalid file extension")
-            
-            update_process_status(process_id, CompletedProcess(
-                user_id=current_user.id,
-                status=RequestStatus.FAILED,
-                result=f"Invalid file extension {uploaded_file.filename}. Only {VALID_AUDIO_EXTENSIONS} files are accepted",
-                result_format=transcription_response_format.value,
-                lang=lang
-            ))
-
-
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            return TranscriptionResult(result=False,
-                                    error=f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted",
-                                    transcription=None,
-                                    format=None
-                                    )
-
         transcription = transcribe_uploaded_file(uploaded_file, lang, transcription_response_format)
         
         update_process_status(process_id, CompletedProcess(
@@ -112,7 +94,8 @@ def audio_trans(
             status=RequestStatus.COMPLETED,
             result=transcription,
             result_format=transcription_response_format.value,
-            lang=lang
+            lang=lang,
+            type=ProcessArtifactType.TRANSCRIPTION
         ))
 
         logging.info("Completed processing audio file. Returning transcription.")
@@ -126,13 +109,8 @@ def audio_trans(
     except Exception as e:
         logging.error(f"Error in audio transcribe endpoint: {str(e)}", exc_info=True)
         
-        update_process_status(process_id, CompletedProcess(
-            user_id=current_user.id,
-            status=RequestStatus.FAILED,
-            result=str(e),
-            result_format=transcription_response_format.value,
-            lang=lang
-        )   )
+        if process_id:
+            process_failed(process_id, str(e))
 
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return TranscriptionResult(
@@ -141,7 +119,6 @@ def audio_trans(
             transcription=None,
             format=None
         )
-
 
 @a_router.post("/summary", response_model=SummaryResult)
 def audio_summarize(
@@ -170,13 +147,8 @@ def audio_summarize(
     This endpoint accepts an audio file via multipart form-data, transcribes it, and then generates a summary of the content.
     The summary can be returned as plain text or JSON based on the Accept header in the request.
     """
-    # Register new audio processing job
-    process_id = register_new_process(
-        process_type="audio_summarization",
-        user_id=current_user.id,
-        metadata={"file_name": uploaded_file.filename, "type": type.name, "lang": lang}
-    )
-    
+    process_id = None
+
     try:
         logging.info(f"audio summarizing api - {uploaded_file}, type: {type.name}")
 
@@ -192,16 +164,30 @@ def audio_summarize(
                 response.status_code = status.HTTP_400_BAD_REQUEST
                 return {"error": f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted"}
 
+            # Register new audio processing job
+            process_id = register_new_process(
+                current_user,
+                RequestType.AUDIO,
+                request=request,
+                request_data={
+                    "file_name": uploaded_file.filename, 
+                    "file_type": uploaded_file.content_type,
+                    "lang": lang, 
+                    "format": type.name}
+            )
+
             # Update status before transcription
-            update_process_status(process_id, "transcribing")
             transcription = transcribe_uploaded_file(uploaded_file, lang, WHISPER_RESPONSE_FORMAT.SRT)
+            register_process_artifact(
+                current_user, process_id, ProcessArtifactType.TRANSCRIPTION, transcription, ProcessArtifactFormat.TEXT, lang)
             
             # Update status before summarization
-            update_process_status(process_id, "summarizing")
             summary = summarize(transcription, type, lang)
+            register_process_artifact(
+                current_user, process_id, ProcessArtifactType.SUMMARY, summary, ProcessArtifactFormat.TEXT, lang)
 
             # Mark process as completed
-            update_process_status(process_id, "completed")
+            complete_process(process_id)
             
             logging.info("Completed processing audio file. Returning summary.")
 
@@ -217,13 +203,15 @@ def audio_summarize(
             raise
     except Exception as e:
         logging.error(f"Error in audio summarize endpoint: {str(e)}", exc_info=True)
+        if process_id:
+            process_failed(process_id, str(e))
+
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return SummaryResult(
             result=False,
             error="An error occurred while processing the audio file",
             summary=None
         )
-
 
 def transcribe_uploaded_file(uploaded_file: UploadFile,
                              lang: LANG_CODE,
@@ -285,26 +273,3 @@ def transcribe_file(save_path: str, file: str):
     except Exception as e:
         logging.error(f"Failed to process {file}: {str(e)}")
         raise
-
-@a_router.post("/process")
-async def test_new_process(request: Request, current_user: User = Depends(get_current_active_user)):
-    request_data = await request.json()  # Await the coroutine to get JSON data
-    reg_request = register_new_process(
-        current_user, 
-        RequestType.AUDIO, 
-        request_data
-    )
-
-    update_process_status(
-        reg_request.id,
-
-        CompletedProcess(
-            user_id=current_user.id,
-            status=RequestStatus.COMPLETED,
-            result="test very long text lorem ipsum dolor sit amet",
-            result_format=ProcessArtifactFormat.TEXT,
-            lang=LANG_CODE.POLISH
-        )
-    )
-
-    return {"status": "success"}

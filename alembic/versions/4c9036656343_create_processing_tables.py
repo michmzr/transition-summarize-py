@@ -21,14 +21,11 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     # Drop existing enum types if they exist
     op.execute("""
-        DO $$ 
-        BEGIN
-            DROP TYPE IF EXISTS requesttype CASCADE;
-            DROP TYPE IF EXISTS requeststatus CASCADE;
-            DROP TYPE IF EXISTS processartifacttype CASCADE;
-            DROP TYPE IF EXISTS processartifactformat CASCADE;
-            DROP TYPE IF EXISTS userprocesssourcetype CASCADE;
-        END $$;
+        DROP TYPE IF EXISTS requesttype CASCADE;
+        DROP TYPE IF EXISTS requeststatus CASCADE;
+        DROP TYPE IF EXISTS processartifacttype CASCADE;
+        DROP TYPE IF EXISTS processartifactformat CASCADE;
+        DROP TYPE IF EXISTS userprocesssourcetype CASCADE;
     """)
 
     # Create enum types

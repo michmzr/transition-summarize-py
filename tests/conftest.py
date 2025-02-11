@@ -24,6 +24,7 @@ def setup_test_db(postgres_container):
 
     # Cleanup - truncate all tables
     try:
+        print("Truncating test tables")
         db.execute(text('''
             TRUNCATE TABLE users, uprocess, process_artifacts CASCADE;
         '''))
@@ -84,9 +85,13 @@ def postgres_container(override_settings):
     # Drop all objects in the database first
     engine = create_engine(db_url)
     with engine.connect() as conn:
+        print("Dropping all objects in the database")
         conn.execute(text("""
             DROP SCHEMA public CASCADE;
+            DROP TYPE IF EXISTS requesttype;
             CREATE SCHEMA public;
+            GRANT ALL ON SCHEMA public TO postgres;
+            GRANT ALL ON SCHEMA public TO public;
         """))
         conn.commit()
     
@@ -151,6 +156,8 @@ def test_db(postgres_container):
     db = session_maker()
     
     yield db
+
+    print("Cleaning up test database")
     
     # Cleanup after each test
     db.rollback()

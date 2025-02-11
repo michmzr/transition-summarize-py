@@ -3,19 +3,31 @@ from sqlalchemy.orm import sessionmaker
 from app.schema.models import Base
 from app.settings import get_settings
 
+_engine = None
+_SessionLocal = None
+
 def get_engine():
     """Get or create SQLAlchemy engine based on current settings"""
-    settings = get_settings()
-    return create_engine(settings.database_url)
+    global _engine
+    if _engine is None:
+        settings = get_settings()
+        _engine = create_engine(settings.database_url)
+    return _engine
 
 def get_session_maker():
     """Get or create session maker based on current engine"""
-    return sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+    global _SessionLocal
+    if _SessionLocal is None:
+        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+    return _SessionLocal
+
+# For backwards compatibility
+engine = get_engine()
+SessionLocal = get_session_maker()
 
 # Dependency
 def get_db():
-    session_maker = get_session_maker()
-    db = session_maker()
+    db = SessionLocal()
     try:
         yield db
     finally:

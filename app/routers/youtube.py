@@ -7,11 +7,11 @@ from starlette.responses import PlainTextResponse
 from app.auth import get_current_active_user
 from app.models import YtVideoSummarize, YTVideoTranscribe, YtVideoInfoRequest, YoutubeMetadata, SummaryResult, \
     TranscriptionResult
-from app.processing.processing import register_new_process, update_process_status
-from app.schema.models import RequestStatus, RequestType
+from app.processing.processing import complete_process, process_failed, register_new_process, register_process_artifact, update_process_status
+from app.schema.models import ProcessArtifactFormat, ProcessArtifactType, RequestStatus, RequestType
 from app.schema.pydantic_models import CompletedProcess, User
 from app.summary.summarization import summarize
-from app.transcribe.transcription import yt_transcribe, WHISPER_RESPONSE_FORMAT
+from app.transcribe.transcription import LANG_CODE, yt_transcribe, WHISPER_RESPONSE_FORMAT
 from app.youtube.metadata import get_youtube_metadata
 
 yt_router = APIRouter(
@@ -44,52 +44,47 @@ def yt_transcription(
     Raises:
         HTTPException: If there's an error during transcription.
     """
-    reg_request = register_new_process(
-        current_user,
-        RequestType.FILE,
-        request.json()
-    )
+    process_id = None
     try:
         logging.info(f"yt transcribe - request details: {yt_request}")
 
+        process_id = register_new_process(
+            current_user,
+            request_type=RequestType.YOUTUBE,
+            request=request,
+            request_data={
+                "yt_request": yt_request.model_dump()}
+        )
+
         save_dir = save_dir_path(yt_request.url)
-        result = yt_transcribe(
+        transcription = yt_transcribe(
             yt_request.url,
             save_dir,
             yt_request.lang,
             yt_request.response_format)
 
-        update_process_status(
-            reg_request.id,
-            CompletedProcess(
-                user_id=current_user.id,
-                status=RequestStatus.COMPLETED,
-                result=result,
-                result_format=yt_request.response_format,
-                lang=yt_request.lang
-            )
-        )
+        update_process_status(process_id, CompletedProcess(
+            user_id=current_user.id,
+            status=RequestStatus.COMPLETED,
+            result=transcription,
+            result_format=ProcessArtifactFormat.TEXT,
+            lang=yt_request.lang,
+            type=ProcessArtifactType.TRANSCRIPTION
+        ))
 
         # Get the Accept header from the request
         accept_header = request.headers.get("Accept", "application/json")
 
         # If the Accept header is "text/plain", return plain text
         if accept_header == "text/plain":
-            return PlainTextResponse(result)
+            return PlainTextResponse(transcription)
         else:
-            return TranscriptionResult(result=True, error=None, transcription=result, format=yt_request.response_format)
+            return TranscriptionResult(result=True, error=None, transcription=transcription, format=yt_request.response_format)
     except Exception as e:
         logging.error(f"Error processing YouTube transcription: {str(e)}")
-        update_process_status(
-            reg_request.id,
-            CompletedProcess(
-                user_id=current_user.id,
-                status=RequestStatus.FAILED,
-                result="",
-                result_format=yt_request.response_format,
-                lang=yt_request.lang
-            )
-        )
+        if process_id:
+            process_failed(process_id, str(e))
+
         return TranscriptionResult(result=False, error="Internal server error", transcription=None, format=None)
 
 
@@ -132,34 +127,37 @@ def yt_summarize(
     Raises:
         HTTPException: If there's an error during transcription or summarization.
     """
-    reg_request = register_new_process(
-        current_user,
-        RequestType.FILE,
-        request.json()
-    )
+
     try:
         logging.info(f"yt summarize - Request details: {yt_request:}")
 
+        process_id = register_new_process(
+            current_user,
+            RequestType.YOUTUBE,
+            request=request,
+            request_data={
+                "yt_request": yt_request.model_dump()}
+        )
+
         save_dir = save_dir_path(yt_request.url)
-        transcription = yt_transcribe(yt_request.url,
-                                      save_dir,
-                                      yt_request.lang,
-                                      WHISPER_RESPONSE_FORMAT.SRT)
+        
+        transcription = yt_transcribe(yt_request.url,save_dir, yt_request.lang, WHISPER_RESPONSE_FORMAT.SRT)
+        register_process_artifact(
+            current_user, process_id, 
+            ProcessArtifactType.TRANSCRIPTION, 
+            transcription, 
+            ProcessArtifactFormat.TEXT, yt_request.lang)
 
         summarization = summarize(transcription, yt_request.type, yt_request.lang)
+        register_process_artifact(
+            current_user, process_id, 
+            ProcessArtifactType.SUMMARY, 
+            summarization, 
+            ProcessArtifactFormat.TEXT, yt_request.lang)
 
         logging.debug(f"yt summarize - Result: \n{summarization}")
 
-        update_process_status(
-            reg_request.id,
-            CompletedProcess(
-                user_id=current_user.id,
-                status=RequestStatus.COMPLETED,
-                result=summarization,
-                result_format=ProcessingResultFormat.TEXT,
-                lang=yt_request.lang
-            )
-        )
+        complete_process(process_id)
 
         # Get the Accept header from the request
         accept_header = request.headers.get("Accept", "application/json")
@@ -171,16 +169,9 @@ def yt_summarize(
             return SummaryResult(summary=summarization)
     except Exception as e:
         logging.error(f"Error processing YouTube summarization: {str(e)}")
-        update_process_status(
-            reg_request.id,
-            CompletedProcess(
-                user_id=current_user.id,
-                status=RequestStatus.FAILED,
-                result="",
-                result_format=ProcessingResultFormat.TEXT,
-                lang=yt_request.lang
-            )
-        )
+        if process_id:
+            process_failed(process_id, str(e))
+
         return {"error": "Internal server error"}
 
 
@@ -216,38 +207,36 @@ def yt_details(
     Raises:
         HTTPException: If there's an error fetching the video metadata.
     """
-    reg_request = register_new_process(
-        current_user,
-        RequestType.FILE,
-        request.json()
-    )
+
+    process_id = None
     try:
         logging.info(f"Getting YT video details: {request.url}")
+
+        process_id = register_new_process(
+            current_user,
+            RequestType.YOUTUBE,
+            request=request,
+            request_data={
+                "yt_details": request.model_dump()}
+        )
 
         metadata = get_youtube_metadata(request.url)
 
         update_process_status(
-            reg_request.id,
+            process_id,
             CompletedProcess(
                 user_id=current_user.id,
                 status=RequestStatus.COMPLETED,
-                result=str(metadata),
-                result_format=ProcessingResultFormat.JSON,
+                result=str(metadata),   
+                result_format=ProcessArtifactFormat.JSON,
                 lang=LANG_CODE.ENGLISH
             )
         )
-
+        
         return metadata
     except Exception as e:
         logging.error(f"Error fetching YouTube video details: {str(e)}")
-        update_process_status(
-            reg_request.id,
-            CompletedProcess(
-                user_id=current_user.id,
-                status=RequestStatus.FAILED,
-                result="",
-                result_format=ProcessingResultFormat.JSON,
-                lang=LANG_CODE.ENGLISH
-            )
-        )
+        if process_id:
+            process_failed(process_id, str(e))
+
         return {"error": "Internal server error"}

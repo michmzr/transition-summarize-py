@@ -255,4 +255,5 @@ def yt_details(
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return ApiProcessingResult(
             result=False, 
-            error=f"Error processing YouTube summarization: {str(e)}") 
+            error=f"Error processing YouTube summarization: {str(e)}",
+            text=str(e)) 

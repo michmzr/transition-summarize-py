@@ -11,6 +11,7 @@ from app.routers.auth import auth_router
 from app.routers.youtube import yt_router
 from app.schema import models
 from app.settings import Settings, get_settings
+from app.database import init_db
 
 static_ffmpeg.add_paths()
 
@@ -40,8 +41,8 @@ logging.basicConfig(
     ]
 )
 
-# Create tables
-models.Base.metadata.create_all(bind=database.engine)
+# Initialize database (only in non-test environment)
+init_db()
 
 # Health api
 @app.get("/health")

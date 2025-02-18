@@ -11,15 +11,27 @@ def get_engine():
     global _engine
     if _engine is None:
         settings = get_settings()
-        _engine = create_engine(settings.get_database_url())
+        if not settings.is_testing:
+            _engine = create_engine(settings.get_database_url())
     return _engine
 
 def get_session_maker():
     """Get or create session maker based on current engine"""
     global _SessionLocal
     if _SessionLocal is None:
-        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+        engine = get_engine()
+        if engine is not None:
+            _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return _SessionLocal
+
+# Don't create tables automatically in test environment
+def init_db():
+    """Initialize database tables if not in test environment"""
+    settings = get_settings()
+    if not settings.is_testing:
+        engine = get_engine()
+        if engine is not None:
+            Base.metadata.create_all(bind=engine)
 
 # For backwards compatibility
 engine = get_engine()

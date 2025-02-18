@@ -15,11 +15,12 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
 from app import database
+from app.settings import get_settings
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db(postgres_container):
     # Setup
-    db = get_session_maker()()
+    db = database.get_session_maker()()
 
     yield db
 
@@ -36,7 +37,6 @@ def setup_test_db(postgres_container):
 @pytest.fixture(scope="session", autouse=True)
 def override_settings():
     """Override settings before any database connections are made"""
-    from app.settings import get_settings
     settings = get_settings()
     
     # Force test settings
@@ -125,6 +125,10 @@ def postgres_container(override_settings):
         "POSTGRES_DB": POSTGRES_DB,
         "DATABASE_URL": db_url
     })
+
+    # Get settings instance and update database URL
+    settings = get_settings()
+    settings.database_url = db_url
     
     # Run migrations
     alembic_cfg = alembic.config.Config("alembic.ini")

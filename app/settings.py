@@ -61,6 +61,7 @@ class Settings(BaseSettings):
         """
         Get the database URL, handling the case where it might be None during testing
         """
+        logging.info(f"Database URL present: {self.database_url is not None}, testing: {self.is_testing}")
         if self.is_testing and self.database_url is None:
             # Return a dummy URL during testing - will be overridden by testcontainers
             return "postgresql://postgres:postgres@localhost:5432/postgres"

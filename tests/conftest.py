@@ -81,7 +81,7 @@ def postgres_container(override_settings):
     # Configure container startup
     postgres_container.with_env("PGDATA", "/var/lib/postgresql/data")
     postgres_container.with_env("POSTGRES_INITDB_ARGS", "--auth=trust")
-    postgres_container.start_timeout = 180
+    postgres_container.start_timeout = 60
     
     # Configure health check
     postgres_container.with_command([
@@ -100,6 +100,11 @@ def postgres_container(override_settings):
         testcontainers_logger.info("Starting PostgreSQL container...")
         postgres_container.start()
         
+        # Print container logs immediately after start
+        print("\n=== PostgreSQL Container Logs ===")
+        print(postgres_container.get_container().logs().decode())
+        print("================================\n")
+        
         # Get the actual port and create database URL
         actual_port = postgres_container.get_exposed_port(5432)
         db_url = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:{actual_port}/{POSTGRES_DB}"
@@ -108,9 +113,21 @@ def postgres_container(override_settings):
         override_settings.database_url = db_url
         os.environ["POSTGRES_URL"] = db_url
         
+        # Monitor container logs during test execution
+        def print_logs():
+            while True:
+                print(postgres_container.get_container().logs().decode())
+                time.sleep(5)
+        
+        import threading
+        log_thread = threading.Thread(target=print_logs, daemon=True)
+        log_thread.start()
+        
         yield postgres_container
     except Exception as e:
         testcontainers_logger.error(f"Failed to start PostgreSQL container: {e}")
+        print("\n=== Error Logs ===")
+        print(postgres_container.get_container().logs().decode())
         raise
     finally:
         postgres_container.stop()

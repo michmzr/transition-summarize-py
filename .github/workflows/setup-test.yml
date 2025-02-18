@@ -48,22 +48,27 @@ jobs:
         id: test-run
         env:
           PYTHONPATH: ${{ github.workspace }}
-          # Add a default database URL that will be overridden by testcontainers
-          POSTGRES_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           USE_PROXY: false
           SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
           IS_LOCAL: true
+          DISABLE_CACHE: true
+
           ENABLE_REGISTRATION: true
           LANGCHAIN_TRACING_V2: false
           LANGCHAIN_ENDPOINT: ""
           LANGCHAIN_PROJECT: ""
           LANGCHAIN_API_KEY: ""
-          # Add test-specific environment variables
+          
+          # Test environment indicator
           TESTING: true
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
+
+          # Let testcontainers handle all database configuration
+          POSTGRES_HOST: ""  # Will be set by testcontainers
+          POSTGRES_PORT: ""  # Will be set by testcontainers
+          POSTGRES_USER: ""  # Will be set by testcontainers
+          POSTGRES_PASSWORD: ""  # Will be set by testcontainers
+          POSTGRES_DB: ""  # Will be set by testcontainers
         run: |
           echo "Installing dependencies..."
           pipenv --python ${{ env.pythonLocation }}/bin/python install

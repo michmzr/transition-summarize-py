@@ -29,7 +29,7 @@ def register_new_process(user: User, request_type: RequestType, request: Request
             type=request_type,
             status=RequestStatus.PENDING,
             source_metadata=request_data,
-            source_type=UserProcessSourceType.FILE
+            source_type=source_type
         )
         # todo add request.url to source_metadata
 

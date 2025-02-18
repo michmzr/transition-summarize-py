@@ -18,21 +18,7 @@ permissions:
 jobs:
   setup_and_test:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:latest
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
+    
     steps:
       - uses: actions/checkout@v4
 
@@ -41,6 +27,9 @@ jobs:
         with:
           python-version: '3.12'
           cache: 'pip'
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
 
       - name: Install pipenv
         run: |
@@ -57,6 +46,18 @@ jobs:
 
       - name: Install dependencies and run tests
         id: test-run
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PROXY_SERVERS: ""
+          USE_PROXY: false
+          SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          IS_LOCAL: true
+          ENABLE_REGISTRATION: true
+          LANGCHAIN_TRACING_V2: false
+          LANGCHAIN_ENDPOINT: ""
+          LANGCHAIN_PROJECT: ""
+          LANGCHAIN_API_KEY: ""
         run: |
           echo "Installing dependencies..."
           pipenv --python ${{ env.pythonLocation }}/bin/python install
@@ -70,7 +71,7 @@ jobs:
             --cov=app \
             --cov-report=term-missing:skip-covered \
             --cov-report=xml
-          
+
           echo "Test files generated:"
           ls -la pytest-results.xml || echo "pytest-results.xml not found"
           ls -la coverage.xml || echo "coverage.xml not found"
@@ -80,23 +81,6 @@ jobs:
           
           echo "Content of coverage.xml:"
           cat coverage.xml || echo "Cannot read coverage.xml"
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-          POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/test_db
-          POSTGRES_USERNAME: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5432
-          POSTGRES_NAME: test_db
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PROXY_SERVERS: ${{ secrets.PROXY_SERVERS }}
-          SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-          IS_LOCAL: true
-          ENABLE_REGISTRATION: true
-          LANGCHAIN_TRACING_V2: false
-          LANGCHAIN_ENDPOINT: ""
-          LANGCHAIN_PROJECT: ""
-          LANGCHAIN_API_KEY: ""
 
       - name: Process Test Results
         if: always()

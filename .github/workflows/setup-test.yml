@@ -48,8 +48,7 @@ jobs:
         id: test-run
         env:
           PYTHONPATH: ${{ github.workspace }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PROXY_SERVERS: ""
+          OPENAI_API_KEY: "${{ secrets.OPENAI_API_KEY }}"
           USE_PROXY: false
           SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
           IS_LOCAL: true

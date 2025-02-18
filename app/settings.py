@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     disable_cache: bool = False
     logging_level: int = logging.DEBUG
     openai_api_key: str = Field(alias="OPENAI_API_KEY")
-    use_proxy: bool = True
 
     # LangChain settings
     langchain_tracing_v2: bool = Field(default=False, env="LANGCHAIN_TRACING_V2")
@@ -27,6 +26,7 @@ class Settings(BaseSettings):
     langchain_project: str = Field(default="", env="LANGCHAIN_PROJECT")
 
     # Proxy settings
+    use_proxy: bool = Field(default=False, env="USE_PROXY")
     proxy_servers: str = Field(default="", env="PROXY_SERVERS")
 
     # Paths

@@ -38,8 +38,7 @@ def setup_test_db(postgres_container):
 def override_settings():
     """Override settings before any database connections are made"""
     settings = get_settings()
-    
-    # Force test settings
+    settings.testing = True
     settings.is_local = True
     settings.enable_registration = True
     settings.database_url = None  # Will be set by postgres_container fixture
@@ -88,7 +87,11 @@ def postgres_container(override_settings):
     # Wait a bit longer for the container to fully initialize
     time.sleep(5)  # Increased from 2 to 5 seconds
     
-    # Create postgres role and set up database
+    # Update settings before any database operations
+    override_settings.database_url = db_url
+    os.environ["POSTGRES_URL"] = db_url
+    
+    # Now create engine with the correct port
     engine = create_engine(db_url)
     with engine.connect() as conn:
         # Create postgres role if it doesn't exist
@@ -112,9 +115,6 @@ def postgres_container(override_settings):
             GRANT ALL ON SCHEMA public TO public;
         """))
         conn.commit()
-    
-    # Set the database URL in settings and environment
-    override_settings.database_url = db_url
     
     # Set database-specific environment variables
     os.environ.update({

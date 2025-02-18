@@ -59,7 +59,7 @@ def override_settings():
 
 @pytest.fixture(scope="session")
 def postgres_container(override_settings):
-    postgres_container = PostgresContainer("postgres:latest")
+    postgres_container = PostgresContainer("postgres:15-alpine")  # Use lighter Alpine-based image
     
     # Set default PostgreSQL credentials
     POSTGRES_USER = "postgres"
@@ -72,9 +72,10 @@ def postgres_container(override_settings):
     postgres_container.with_env("POSTGRES_DB", POSTGRES_DB)
     postgres_container.with_env("POSTGRES_HOST_AUTH_METHOD", "trust")
     
-    # Increase startup timeout and health check interval
-    postgres_container.with_env("POSTGRES_INIT_DB_ARGS", "--timeout=60")
-    postgres_container.start_timeout = 180  # Increase from default 120s
+    # Configure container startup
+    postgres_container.with_env("PGDATA", "/var/lib/postgresql/data/pgdata")
+    postgres_container.with_env("POSTGRES_INITDB_ARGS", "--nosync")
+    postgres_container.start_timeout = 120
     
     # Use random available port
     postgres_container.with_bind_ports(5432, 0)
@@ -85,9 +86,6 @@ def postgres_container(override_settings):
         # Get the actual port and create database URL
         actual_port = postgres_container.get_exposed_port(5432)
         db_url = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:{actual_port}/{POSTGRES_DB}"
-        
-        # Wait for database to be ready
-        time.sleep(10)  # Increased wait time
         
         # Update settings
         override_settings.database_url = db_url

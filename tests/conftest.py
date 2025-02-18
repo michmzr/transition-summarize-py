@@ -66,77 +66,36 @@ def postgres_container(override_settings):
     POSTGRES_PASSWORD = "postgres"
     POSTGRES_DB = "postgres"
     
-    # Configure container with credentials and create user
+    # Configure container with credentials
     postgres_container.with_env("POSTGRES_USER", POSTGRES_USER)
     postgres_container.with_env("POSTGRES_PASSWORD", POSTGRES_PASSWORD)
     postgres_container.with_env("POSTGRES_DB", POSTGRES_DB)
-    postgres_container.with_env("POSTGRES_HOST_AUTH_METHOD", "trust")  # Changed from md5 to trust
+    postgres_container.with_env("POSTGRES_HOST_AUTH_METHOD", "trust")
+    
+    # Increase startup timeout and health check interval
+    postgres_container.with_env("POSTGRES_INIT_DB_ARGS", "--timeout=60")
+    postgres_container.start_timeout = 180  # Increase from default 120s
     
     # Use random available port
     postgres_container.with_bind_ports(5432, 0)
     
-    # Start the container
-    postgres_container.start()
-    
-    # Get the actual port that was assigned
-    actual_port = postgres_container.get_exposed_port(5432)
-    
-    # Construct database URL with proper credentials
-    db_url = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:{actual_port}/{POSTGRES_DB}"
-    
-    # Wait a bit longer for the container to fully initialize
-    time.sleep(5)  # Increased from 2 to 5 seconds
-    
-    # Update settings before any database operations
-    override_settings.database_url = db_url
-    os.environ["POSTGRES_URL"] = db_url
-    
-    # Now create engine with the correct port
-    engine = create_engine(db_url)
-    with engine.connect() as conn:
-        # Create postgres role if it doesn't exist
-        conn.execute(text("""
-            DO
-            $do$
-            BEGIN
-               IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'postgres') THEN
-                  CREATE ROLE postgres WITH SUPERUSER LOGIN PASSWORD 'postgres';
-               END IF;
-            END
-            $do$;
-        """))
-        conn.commit()
+    try:
+        postgres_container.start()
         
-        # Drop and recreate schema
-        conn.execute(text("""
-            DROP SCHEMA IF EXISTS public CASCADE;
-            CREATE SCHEMA public;
-            GRANT ALL ON SCHEMA public TO postgres;
-            GRANT ALL ON SCHEMA public TO public;
-        """))
-        conn.commit()
-    
-    # Set database-specific environment variables
-    os.environ.update({
-        "POSTGRES_HOST": "localhost",
-        "POSTGRES_PORT": str(actual_port),
-        "POSTGRES_USER": POSTGRES_USER,
-        "POSTGRES_PASSWORD": POSTGRES_PASSWORD,
-        "POSTGRES_DB": POSTGRES_DB,
-        "DATABASE_URL": db_url
-    })
-
-    # Get settings instance and update database URL
-    settings = get_settings()
-    settings.database_url = db_url
-    
-    # Run migrations
-    alembic_cfg = alembic.config.Config("alembic.ini")
-    alembic_cfg.set_main_option("sqlalchemy.url", db_url)
-    alembic.command.upgrade(alembic_cfg, "head")
-    
-    yield postgres_container
-    postgres_container.stop()
+        # Get the actual port and create database URL
+        actual_port = postgres_container.get_exposed_port(5432)
+        db_url = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:{actual_port}/{POSTGRES_DB}"
+        
+        # Wait for database to be ready
+        time.sleep(10)  # Increased wait time
+        
+        # Update settings
+        override_settings.database_url = db_url
+        os.environ["POSTGRES_URL"] = db_url
+        
+        yield postgres_container
+    finally:
+        postgres_container.stop()
 
 @pytest.fixture(scope="session")
 def db_url(postgres_container):

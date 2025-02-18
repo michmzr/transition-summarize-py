@@ -50,7 +50,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
 
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          
+
           USE_PROXY: false
 
           SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
@@ -81,6 +81,7 @@ jobs:
           echo "Running tests..."
           PYTHONPATH=$PWD pipenv run pytest \
             --verbose -v \
+            -s \
             -m "unit or integration_no_yt" \
             --junitxml=pytest-results.xml \
             --cov=app \

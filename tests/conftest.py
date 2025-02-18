@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import logging
 
 import pytest
 from sqlalchemy import text
@@ -16,6 +17,11 @@ sys.path.insert(0, project_root)
 
 from app import database
 from app.settings import get_settings
+
+# Configure logging at the top of conftest.py
+logging.basicConfig(level=logging.INFO)
+testcontainers_logger = logging.getLogger("testcontainers")
+testcontainers_logger.setLevel(logging.DEBUG)
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db(postgres_container):
@@ -59,7 +65,7 @@ def override_settings():
 
 @pytest.fixture(scope="session")
 def postgres_container(override_settings):
-    postgres_container = PostgresContainer("postgres:15-alpine")  # Use lighter Alpine-based image
+    postgres_container = PostgresContainer("postgres:15-alpine")
     
     # Set default PostgreSQL credentials
     POSTGRES_USER = "postgres"
@@ -73,14 +79,25 @@ def postgres_container(override_settings):
     postgres_container.with_env("POSTGRES_HOST_AUTH_METHOD", "trust")
     
     # Configure container startup
-    postgres_container.with_env("PGDATA", "/var/lib/postgresql/data/pgdata")
-    postgres_container.with_env("POSTGRES_INITDB_ARGS", "--nosync")
-    postgres_container.start_timeout = 120
+    postgres_container.with_env("PGDATA", "/var/lib/postgresql/data")
+    postgres_container.with_env("POSTGRES_INITDB_ARGS", "--auth=trust")
+    postgres_container.start_timeout = 180
+    
+    # Configure health check
+    postgres_container.with_command([
+        "postgres",
+        "-c", "max_connections=100",
+        "-c", "shared_buffers=256MB",
+        "-c", "fsync=off",
+        "-c", "synchronous_commit=off",
+        "-c", "full_page_writes=off"
+    ])
     
     # Use random available port
     postgres_container.with_bind_ports(5432, 0)
     
     try:
+        testcontainers_logger.info("Starting PostgreSQL container...")
         postgres_container.start()
         
         # Get the actual port and create database URL
@@ -92,6 +109,9 @@ def postgres_container(override_settings):
         os.environ["POSTGRES_URL"] = db_url
         
         yield postgres_container
+    except Exception as e:
+        testcontainers_logger.error(f"Failed to start PostgreSQL container: {e}")
+        raise
     finally:
         postgres_container.stop()
 

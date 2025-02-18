@@ -103,7 +103,7 @@ def postgres_container(override_settings):
         # Print container logs immediately after start
         print("\n=== PostgreSQL Container Logs ===")
         print(postgres_container.get_container().logs().decode())
-        print("================================\n")
+        print("=================================\n")
         
         # Get the actual port and create database URL
         actual_port = postgres_container.get_exposed_port(5432)

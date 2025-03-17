@@ -3,10 +3,13 @@ import random
 
 import yt_dlp
 
+from app.cache import conditional_lru_cache
 from app.models import YoutubeTranscriptionMetadata, YoutubeMetadata
-from app.youtube.helpers import proxy_servers
+from app.settings import get_settings
+from app.youtube.proxy import proxy_servers
 
 
+@conditional_lru_cache
 def get_youtube_metadata(video_url: str):
     info = extract_yt_info(video_url)
 
@@ -60,7 +63,7 @@ def extract_yt_info(video_url):
     }
 
     proxys = proxy_servers()
-    if proxys:
+    if get_settings().use_proxy and proxys:
         proxy = random.choice(proxys)
         ydl_opts["proxy"] = proxy
         logging.debug(f"Using '{proxy}' to get YT details.")

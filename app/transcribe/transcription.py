@@ -38,9 +38,9 @@ def downloads_path():
 
 
 def convert_response_format(format: WHISPER_RESPONSE_FORMAT) -> Union[
-    Literal["json", "text", "srt", "verbose_json", "vtt"], None]:
+        Literal["json", "text", "srt", "verbose_json", "vtt"], None]:
     return cast(Union[
-                    Literal["json", "text", "srt", "verbose_json", "vtt"], None], format.value)
+        Literal["json", "text", "srt", "verbose_json", "vtt"], None], format.value)
 
 
 @ls.traceable(
@@ -53,8 +53,7 @@ def convert_response_format(format: WHISPER_RESPONSE_FORMAT) -> Union[
 def yt_transcribe(url: str,
                   save_dir: str,
                   lang: LANG_CODE,
-                  response_format: WHISPER_RESPONSE_FORMAT
-                  ):
+                  response_format: WHISPER_RESPONSE_FORMAT):
     """
     Transcribe the videos to text
 
@@ -64,23 +63,28 @@ def yt_transcribe(url: str,
     :param url: yt video url
     :param save_dir:
     """
-    logging.info(f"Processing url: {url}, save_dir: {save_dir}, lang: {lang}, response_format: {response_format}")
+    logging.info(
+        f"Processing url: {url}, save_dir: {save_dir}, lang: {lang}, response_format: {response_format}")
 
     settings = get_settings()
-    proxy_servers = settings.proxy_servers.split(",") if settings.proxy_servers and settings.use_proxy else None
+    proxy_servers = settings.proxy_servers.split(
+        ",") if settings.proxy_servers and settings.use_proxy else None
 
-    logging.debug(f"Proxy servers: {proxy_servers} - using proxy: {settings.use_proxy}")
+    logging.debug(
+        f"Proxy servers: {proxy_servers} - using proxy: {settings.use_proxy}")
 
     loader = GenericLoader(YoutubeAudioLoader([url], save_dir, proxy_servers),
                            OpenAIWhisperParser(api_key=settings.openai_api_key,
-                                             language=lang.value,
-                                             response_format=convert_response_format(response_format),
-                                             temperature=0
-                                             ))
+                                               language=lang.value,
+                                               response_format=convert_response_format(
+                                                   response_format),
+                                               temperature=0
+                                               ))
     docs = loader.load()
 
     # read all docs, get page_content and concatenate
     return " ".join([doc.page_content for doc in docs])
+
 
 @ls.traceable(
     run_type="llm",
@@ -99,7 +103,8 @@ def transcribe(file: BinaryIO,
     :param lang: Lang code
     :param file: audio file
     """
-    logging.info(f"Transcribing audio file: {file}, lang: {lang}, format: {response_format}")
+    logging.info(
+        f"Transcribing audio file: {file}, lang: {lang}, format: {response_format}")
 
     file_stats = os.stat(file.name)
     logging.debug("File stats: " + str(file_stats))
@@ -109,14 +114,16 @@ def transcribe(file: BinaryIO,
 
     docs = []
     if size > AUDIO_SPLIT_BYTES:
-        logging.debug("File size > 24MB, splitting audio file into 10min parts")
+        logging.debug(
+            "File size > 24MB, splitting audio file into 10min parts")
 
         ten_minutes = TEN_MINUTES
         parts = AudioSegment.from_file(file)
         processing_id = str(random.randint(0, 100000))
 
         def process_chunk(i):
-            logging.debug(f"Processing chunk {i} to {i + ten_minutes} / {len(parts)}")
+            logging.debug(
+                f"Processing chunk {i} to {i + ten_minutes} / {len(parts)}")
             chunk = parts[i:i + ten_minutes]
             chunk_filename = f"{downloads_path()}/{processing_id}chunk_{i}_file.mp3"
             chunk_file = chunk.export(chunk_filename, format="mp3")
@@ -125,7 +132,8 @@ def transcribe(file: BinaryIO,
             return result
 
         with ThreadPoolExecutor() as executor:
-            future_to_index = {executor.submit(process_chunk, i): i for i in range(0, len(parts), ten_minutes)}
+            future_to_index = {executor.submit(
+                process_chunk, i): i for i in range(0, len(parts), ten_minutes)}
             ordered_results = [None] * len(future_to_index)
             for future in as_completed(future_to_index):
                 index = future_to_index[future]
@@ -133,7 +141,8 @@ def transcribe(file: BinaryIO,
                     result = future.result()
                     ordered_results[index // ten_minutes] = result
                 except Exception as exc:
-                    logging.error(f"Chunk {index} generated an exception: {exc}")
+                    logging.error(
+                        f"Chunk {index} generated an exception: {exc}")
 
         docs = ordered_results
     else:
@@ -143,10 +152,7 @@ def transcribe(file: BinaryIO,
 
 
 @conditional_lru_cache
-def small_file(file: BinaryIO,
-               lang: LANG_CODE = LANG_CODE.ENGLISH,
-               response_format: WHISPER_RESPONSE_FORMAT = WHISPER_RESPONSE_FORMAT.TEXT
-               ):
+def small_file(file: BinaryIO, lang: LANG_CODE = LANG_CODE.ENGLISH, response_format: WHISPER_RESPONSE_FORMAT = WHISPER_RESPONSE_FORMAT.TEXT):
     """
     :param response_format:
     :param file: binary file

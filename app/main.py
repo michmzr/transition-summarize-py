@@ -12,12 +12,16 @@ from app.routers.youtube import yt_router
 from app.schema import models
 from app.settings import Settings, get_settings
 from app.database import init_db
+from app.middleware.request_id import RequestIDMiddleware, RequestIDFilter
 
 static_ffmpeg.add_paths()
 
 settings = Settings()
 
 app = FastAPI()
+
+# Add request ID middleware
+app.add_middleware(RequestIDMiddleware)
 
 # Create a new router for protected routes
 protected_app = FastAPI(dependencies=[Depends(get_current_active_user)])
@@ -32,14 +36,26 @@ app.include_router(auth_router)
 app.include_router(yt_router)
 app.include_router(a_router)
 
-logging.basicConfig(
-    level=get_settings().logging_level,
-    format="%(asctime)s [%(levelname)s] [%(threadName)s] %(message)s",
-    handlers=[
-        logging.FileHandler("debug.log"),
-        logging.StreamHandler()
-    ]
+# Configure logging with request ID
+logger = logging.getLogger()
+logger.setLevel(get_settings().logging_level)
+
+# Create formatters and handlers with simplified format
+formatter = logging.Formatter(
+    "[%(levelname)s] [%(request_id)s] %(message)s"
 )
+
+file_handler = logging.FileHandler("debug.log")
+file_handler.setFormatter(formatter)
+file_handler.addFilter(RequestIDFilter())
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+console_handler.addFilter(RequestIDFilter())
+
+# Add handlers to logger
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 # Initialize database (only in non-test environment)
 init_db()

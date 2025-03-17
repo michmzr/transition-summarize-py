@@ -10,6 +10,7 @@ from app.auth import get_password_hash
 from app.main import app
 from app.schema.models import UserDB
 from app.settings import get_settings
+from app.database import get_session_maker
 
 BASE_URL = "http://127.0.0.1:8000/"
 SHORT_YT_VIDEO = "https://www.youtube.com/watch?v=WuciqTSbewY"
@@ -20,7 +21,8 @@ client = TestClient(app)
 @pytest.fixture
 def test_db():
     # Clean up any existing test user first
-    db = database.SessionLocal()
+    SessionMaker = get_session_maker()
+    db = SessionMaker()
     db.query(UserDB).filter(UserDB.username == "testuser").delete()
     db.commit()
 

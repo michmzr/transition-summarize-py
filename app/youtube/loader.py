@@ -56,6 +56,7 @@ class YoutubeAudioLoader(BlobLoader):
             return any(keyword in str(exception).lower() for keyword in keywords)
 
         while trial < max_trials:
+            logging.debug(f"Download youtube video {self.urls}, trial {trial}/{max_trials}")
             if (self.proxy_servers):
                 ydl_opts["proxy"] = self.random_proxy()
 
@@ -76,7 +77,7 @@ class YoutubeAudioLoader(BlobLoader):
                     if trial == max_trials:
                         raise e
                 else:
-                    logging.debug("Exception does not contain keywords, raising exception higher")
+                    logging.warning(f"Exception '{e}' does not contain keywords: '{keywords}', raising exception higher")
                     raise e
 
         # Yield the written blobs

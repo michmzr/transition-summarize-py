@@ -2,14 +2,16 @@ import logging
 import os
 import tempfile
 from typing import Annotated
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from uuid import UUID
 
-from fastapi import UploadFile, APIRouter, Response, status, Form, Request, Depends
+from fastapi import UploadFile, APIRouter, Response, status, Form, Request, Depends, HTTPException
 from starlette.responses import PlainTextResponse
 
 from app.auth import get_current_active_user
-from app.models import SUMMARIZATION_TYPE, SummaryResult, TranscriptionResult
-from app.schema.pydantic_models import User
+from app.models import SUMMARIZATION_TYPE, SummaryResult, ApiProcessingResult
+from app.processing.processing import complete_process, process_failed, register_new_process, register_process_artifact, update_process_status
+from app.schema.models import ProcessArtifactType, RequestStatus, RequestType, ProcessArtifactFormat
+from app.schema.pydantic_models import CompletedProcess, User
 from app.summary.summarization import summarize
 from app.transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT, transcribe
 
@@ -21,7 +23,7 @@ a_router = APIRouter(
     dependencies=[Depends(get_current_active_user)]
 )
 
-@a_router.post("/transcribe", response_model=TranscriptionResult)
+@a_router.post("/transcribe", response_model=ApiProcessingResult)
 def audio_trans(
         uploaded_file: UploadFile,
         lang: Annotated[LANG_CODE, Form()],
@@ -50,39 +52,67 @@ def audio_trans(
     The transcription can be returned as plain text or JSON based on the Accept header in the request.
     """
     logging.info(f"audio transcribe api - file name: {uploaded_file.filename}, "
-                 f" content_type: {uploaded_file.content_type}, transcription response format: ${transcription_response_format}")
+        f" content_type: {uploaded_file.content_type}, transcription response format: ${transcription_response_format}")
+    
+    process_id = None
+    try:
+        if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video"):
+            update_process_status(process_id, "failed", "Invalid file type")
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return ApiProcessingResult(
+                result=False,
+                error="Invalid file type. Only audio files are accepted",
+            )
 
-    if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video"):
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return TranscriptionResult(
-            result=False,
-            error="Invalid file type. Only audio files are accepted",
-            transcription=None,
-            format=None
+        if not uploaded_file.filename.endswith(VALID_AUDIO_EXTENSIONS):
+            update_process_status(process_id, "failed", f"Invalid file extension")
+
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return ApiProcessingResult(result=False,
+                                    error=f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted",
+                                    )
+        
+        process_id = register_new_process(
+            current_user,
+            RequestType.AUDIO,
+            request=request,
+            request_data={
+                "file_name": uploaded_file.filename, 
+                "file_type": uploaded_file.content_type,
+                "lang": lang, 
+                "format": transcription_response_format}
         )
 
-    if not uploaded_file.filename.endswith(VALID_AUDIO_EXTENSIONS):
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return TranscriptionResult(result=False,
-                                   error=f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted",
-                                   transcription=None,
-                                   format=None
-                                   )
+        transcription = transcribe_uploaded_file(uploaded_file, lang, transcription_response_format)
+        
+        update_process_status(process_id, CompletedProcess(
+            user_id=current_user.id,
+            status=RequestStatus.COMPLETED,
+            result=transcription,
+            result_format=transcription_response_format.value,
+            lang=lang,
+            type=ProcessArtifactType.TRANSCRIPTION
+        ))
 
-    transcription = transcribe_uploaded_file(uploaded_file, lang, transcription_response_format)
+        logging.info("Completed processing audio file. Returning transcription.")
 
-    logging.info("Completed processing audio file. Returning transcription.")
+        accept_header = request.headers.get("Accept", "application/json")
+        if accept_header == "text/plain":
+            return PlainTextResponse(transcription)
+        else:
+            return ApiProcessingResult(result=True, error=None, transcription=transcription,
+                                    format=transcription_response_format)
+    except Exception as e:
+        logging.error(f"Error in audio transcribe endpoint: {str(e)}", exc_info=True)
+        
+        if process_id:
+            process_failed(process_id, str(e))
 
-    # Get the Accept header from the request
-    accept_header = request.headers.get("Accept", "application/json")
-
-    # If the Accept header is "text/plain", return plain text
-    if accept_header == "text/plain":
-        return PlainTextResponse(transcription)
-    else:
-        return TranscriptionResult(result=True, error=None, transcription=transcription,
-                                   format=transcription_response_format)
-
+        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        return ApiProcessingResult(
+            result=False,
+            error="An error occurred while processing the audio file",
+        )
 
 @a_router.post("/summary", response_model=SummaryResult)
 def audio_summarize(
@@ -111,87 +141,129 @@ def audio_summarize(
     This endpoint accepts an audio file via multipart form-data, transcribes it, and then generates a summary of the content.
     The summary can be returned as plain text or JSON based on the Accept header in the request.
     """
-    logging.info(f"audio summarizing api - {uploaded_file}, type: {type.name}")
+    process_id = None
 
-    # check if file is audio
-    if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video"):
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"error": "Invalid file type. Only audio files are accepted"}
+    try:
+        logging.info(f"audio summarizing api - {uploaded_file}, type: {type.name}")
 
-    if not uploaded_file.filename.endswith(VALID_AUDIO_EXTENSIONS):
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"error": f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted"}
+        try:
+            # check if file is audio
+            if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video"):
+                update_process_status(process_id, "failed", "Invalid file type")
+                response.status_code = status.HTTP_400_BAD_REQUEST
+                return {"error": "Invalid file type. Only audio files are accepted"}
 
-    transcription = transcribe_uploaded_file(uploaded_file, lang, WHISPER_RESPONSE_FORMAT.SRT)
-    summary = summarize(transcription, type, lang)
+            if not uploaded_file.filename.endswith(VALID_AUDIO_EXTENSIONS):
+                update_process_status(process_id, "failed", f"Invalid file extension")
+                response.status_code = status.HTTP_400_BAD_REQUEST
+                return {"error": f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted"}
 
-    logging.info("Completed processing audio file. Returning summary.")
+            # Register new audio processing job
+            process_id = register_new_process(
+                current_user,
+                RequestType.AUDIO,
+                request=request,
+                request_data={
+                    "file_name": uploaded_file.filename, 
+                    "file_type": uploaded_file.content_type,
+                    "lang": lang, 
+                    "format": type.name}
+            )
 
-    accept_header = request.headers.get("Accept", "application/json")
-    # If the Accept header is "text/plain", return plain text
-    if accept_header == "text/plain":
-        return PlainTextResponse(summary)
-    else:
-        return SummaryResult(summary=summary)
+            # Update status before transcription
+            transcription = transcribe_uploaded_file(uploaded_file, lang, WHISPER_RESPONSE_FORMAT.SRT)
+            register_process_artifact(
+                current_user, process_id, ProcessArtifactType.TRANSCRIPTION, transcription, ProcessArtifactFormat.TEXT, lang)
+            
+            # Update status before summarization
+            summary = summarize(transcription, type, lang)
+            register_process_artifact(
+                current_user, process_id, ProcessArtifactType.SUMMARY, summary, ProcessArtifactFormat.TEXT, lang)
 
+            # Mark process as completed
+            complete_process(process_id)
+            
+            logging.info("Completed processing audio file. Returning summary.")
+
+            accept_header = request.headers.get("Accept", "application/json")
+            # If the Accept header is "text/plain", return plain text
+            if accept_header == "text/plain":
+                return PlainTextResponse(summary)
+            else:
+                return SummaryResult(summary=summary)
+        except Exception as e:
+            # Update process status on error
+            update_process_status(process_id, "failed", str(e))
+            raise
+    except Exception as e:
+        logging.error(f"Error in audio summarize endpoint: {str(e)}", exc_info=True)
+        if process_id:
+            process_failed(process_id, str(e))
+
+        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        return SummaryResult(
+            result=False,
+            error="An error occurred while processing the audio file",
+            summary=None
+        )
 
 def transcribe_uploaded_file(uploaded_file: UploadFile,
                              lang: LANG_CODE,
                              response_format: WHISPER_RESPONSE_FORMAT):
-    suffix = os.path.splitext(uploaded_file.filename)[1]
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp:
-        while contents := uploaded_file.file.read(1024 * 1024):
-            temp.write(contents)
-        temp.seek(0)
-        with open(temp.name, 'rb') as binary_file:
-            transcription = transcribe(binary_file, lang, response_format)
-
-    os.unlink(temp.name)
-
-    return transcription
+    try:
+        suffix = os.path.splitext(uploaded_file.filename)[1]
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp:
+            while contents := uploaded_file.file.read(1024 * 1024):
+                temp.write(contents)
+            temp.seek(0)
+            with open(temp.name, 'rb') as binary_file:
+                transcription = transcribe(binary_file, lang, response_format)
+                return transcription
+    except Exception as e:
+        logging.error(f"Error transcribing file: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while transcribing the audio file"
+        )
 
 def list_files_with_file_extension(directory, file_extension):
-    return [f for f in os.listdir(directory) if f.endswith(file_extension)]
+    try:
+        files = [f for f in os.listdir(directory) if f.endswith(file_extension)]
+        logging.debug(f"Found {len(files)} files with extension {file_extension}")
+        return files
+    except Exception as e:
+        logging.error(f"Error listing files in directory {directory}: {str(e)}")
+        raise
 
 def transcribe_file(save_path: str, file: str):
-    print(f"Transcribing file '{file}'.....")
+    try:
+        logging.info(f"Starting transcription for file '{file}'")
+        
+        logging.debug(f"Reading audio file '{file}'...")
+        with open(file, 'rb') as audio_file:
+            try:
+                transcription = transcribe(audio_file, LANG_CODE.POLISH, WHISPER_RESPONSE_FORMAT.SRT)
+            except Exception as e:
+                logging.error(f"Transcription failed for {file}: {str(e)}")
+                raise
 
-    # Open the file in binary mode
-    logging.debug(f"Reading audio file '{file}'...")
-    with open(file, 'rb') as audio_file:
-        transcription = transcribe(audio_file, LANG_CODE.POLISH, WHISPER_RESPONSE_FORMAT.SRT)  # Pass the file object
+        output = os.path.splitext(os.path.basename(file))[0] + ".txt"
+        logging.info(f"Saving transcription to {output}")
+        file_name = os.path.join(save_path, output)
+        
+        try:
+            with open(file_name, "x") as f:
+                f.write(transcription)
+        except FileExistsError:
+            logging.warning(f"File {file_name} already exists, skipping save")
+            raise
+        except Exception as e:
+            logging.error(f"Error saving transcription to {file_name}: {str(e)}")
+            raise
 
-    output = os.path.splitext(os.path.basename(file))[0] + ".txt"  # Get filename without extension
-    logging.info(f"Saving ${output}....")
-    file_name = os.path.join(save_path, output)  # Use os.path.join for better path handling
-    with open(file_name, "x") as f:
-        f.write(transcription)
-
-    return True
-
-
-# @a_router.get("/mentoring")
-# def get_transcribe_mentoringfiles():
-#     directory = "/Users/michmzr/Library/CloudStorage/OneDrive-Osobisty/4.Archives/Mentoring/09\'22/"
-#
-#     files = list_files_with_file_extension(directory, ".wav")
-#     logging.debug(files)
-#
-#     results = []  # List to store transcription results
-#
-#     with ThreadPoolExecutor() as executor:
-#         futures = {executor.submit(transcribe_file, directory, directory + file): file for file in files}
-#
-#         for future in as_completed(futures):
-#             file = futures[future]
-#             try:
-#                 result = future.result()  # Get the result of the transcribe_file function
-#                 results.append({"file": file, "transcription": result})  # Store result
-#                 print(f"Transcribed {file}: {result}")
-#             except Exception as e:
-#                 print(f"Error transcribing {file}: {e}")
-#                 results.append({"file": file, "error": str(e)})  # Store error
-#
-#     logging.info("Completed processing audio file. Returning summary.")
-#
-#     return {"status": "success", "files": results}  # Return results in JSON format
+        logging.info(f"Successfully transcribed and saved {file}")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Failed to process {file}: {str(e)}")
+        raise

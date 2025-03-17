@@ -20,14 +20,14 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(alias="OPENAI_API_KEY")
 
     # LangChain settings
-    langchain_tracing_v2: bool = Field(default=False, env="LANGCHAIN_TRACING_V2")
-    langchain_endpoint: str = Field(default="", env="LANGCHAIN_ENDPOINT")
-    langchain_api_key: str = Field(default="", env="LANGCHAIN_API_KEY")
-    langchain_project: str = Field(default="", env="LANGCHAIN_PROJECT")
+    langchain_tracing_v2: bool = Field(default=False, json_schema_extra={"env": "LANGCHAIN_TRACING_V2"})
+    langchain_endpoint: str = Field(default="", json_schema_extra={"env": "LANGCHAIN_ENDPOINT"})
+    langchain_api_key: str = Field(default="", json_schema_extra={"env": "LANGCHAIN_API_KEY"})
+    langchain_project: str = Field(default="", json_schema_extra={"env": "LANGCHAIN_PROJECT"})
 
     # Proxy settings
-    use_proxy: bool = Field(default=False, env="USE_PROXY")
-    proxy_servers: str = Field(default="", env="PROXY_SERVERS")
+    use_proxy: bool = Field(default=False, json_schema_extra={"env": "USE_PROXY"})
+    proxy_servers: str = Field(default="", json_schema_extra={"env": "PROXY_SERVERS"})
 
     # Paths
     base_dir: str = os.path.dirname(os.path.abspath(__file__))
@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     # Environment
     is_local: bool = Field(default=False, alias="IS_LOCAL")
-    testing: bool = Field(default=False, env="TESTING")
+    testing: bool = Field(default=False, json_schema_extra={"env": "TESTING"})
 
     # Registration
     enable_registration: bool = Field(default=True, alias="ENABLE_REGISTRATION")

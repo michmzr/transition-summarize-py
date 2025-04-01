@@ -3,7 +3,6 @@ from app.schema.pydantic_models import CompletedProcess, User
 from app.schema.models import ProcessArtifactDB, ProcessArtifactFormat, ProcessArtifactType, UserProcessDB, RequestType, RequestStatus, UserProcessSourceType
 import logging
 from uuid import UUID
-from sqlalchemy.orm import Session
 from app.database import get_session_maker
 from app.transcribe.transcription import LANG_CODE
 import hashlib

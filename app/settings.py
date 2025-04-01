@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     logging_level: int = logging.DEBUG
     openai_api_key: str = Field(alias="OPENAI_API_KEY")
 
+    # Cleanup settings
+    cleanup_downloads_enabled: bool = Field(
+        default=True, alias="CLEANUP_DOWNLOADS_ENABLED")
+    cleanup_downloads_age_days: int = Field(
+        default=1, alias="CLEANUP_DOWNLOADS_AGE_DAYS")
+    cleanup_downloads_time: str = Field(
+        default="0 1 * * *", alias="CLEANUP_DOWNLOADS_TIME")  # Default: 1 AM daily
+
     # LangChain settings
     langchain_tracing_v2: bool = Field(default=False, json_schema_extra={"env": "LANGCHAIN_TRACING_V2"})
     langchain_endpoint: str = Field(default="", json_schema_extra={"env": "LANGCHAIN_ENDPOINT"})

@@ -1,7 +1,5 @@
 import hashlib
 import logging
-import requests
-import os
 
 from fastapi import APIRouter, Request, Depends, Response, status
 from starlette.responses import PlainTextResponse

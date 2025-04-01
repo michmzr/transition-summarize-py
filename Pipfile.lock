@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "eb4df59e0c88b4078484e7409edb5c543a354935b7c7c47ca0a511fb259f21af"
+            "sha256": "b03da319277bf3e23f125d131220668f613779277a7c2ff5cb6cc42ada709a59"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -156,6 +156,15 @@
             "index": "pypi",
             "markers": "python_version >= '3.8'",
             "version": "==4.3.0"
+        },
+        "apscheduler": {
+            "hashes": [
+                "sha256:4c622d250b0955a65d5d0eb91c33e6d43fd879834bf541e0a18661ae60460133",
+                "sha256:fc134ca32e50f5eadcc4938e3a4545ab19131435e851abb40b34d63d5141c6da"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.8'",
+            "version": "==3.11.0"
         },
         "attrs": {
             "hashes": [
@@ -2582,6 +2591,14 @@
                 "sha256:b23fc42ff6f6ef6954e4852c1fb512cdd18dbea03134f91f856a95ccc9461f78"
             ],
             "version": "==0.9.0"
+        },
+        "tzlocal": {
+            "hashes": [
+                "sha256:cceffc7edecefea1f595541dbd6e990cb1ea3d19bf01b2809f362a03dd7921fd",
+                "sha256:eb1a66c3ef5847adf7a834f1be0800581b683b5608e74f86ecbcef8ab91bb85d"
+            ],
+            "markers": "python_version >= '3.9'",
+            "version": "==5.3.1"
         },
         "ujson": {
             "hashes": [

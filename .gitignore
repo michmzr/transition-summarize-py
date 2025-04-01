@@ -254,3 +254,5 @@ cython_debug/
 /.idea/modules.xml
 /.idea/transition-summarize-py.iml
 /.idea/vcs.xml
+
+.node_modules

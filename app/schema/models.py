@@ -73,8 +73,9 @@ class ProcessArtifactDB(Base):
 
     type = Column(Enum(ProcessArtifactType), nullable=False)
 
-    result = Column(TEXT, index=True)  # Using PostgreSQL TEXT type with index
+    result = Column(TEXT)
     result_format = Column(Enum(ProcessArtifactFormat), nullable=False)
+    result_hash = Column(String(64), nullable=True, index=True)
     
     lang = Column(String)  # Consider using an ENUM if the languages are fixed
 

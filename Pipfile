@@ -87,6 +87,7 @@ pydantic-settings="*"
 testcontainers = {extras = ["postgres"], version = "*"}
 psycopg = "*"
 yt-dlp = "*"
+apscheduler = "*"
 
 [dev-packages]
 pytest = "^7.0.0"

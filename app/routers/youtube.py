@@ -11,9 +11,9 @@ from app.processing.processing import complete_process, process_failed, register
 from app.schema.models import ProcessArtifactFormat, ProcessArtifactType, RequestStatus, RequestType
 from app.schema.pydantic_models import CompletedProcess, User
 from app.summary.summarization import summarize
-from app.transcribe.transcription import LANG_CODE, yt_transcribe, WHISPER_RESPONSE_FORMAT
+from app.transcribe.transcription import yt_transcribe, WHISPER_RESPONSE_FORMAT
 from app.youtube.metadata import get_youtube_metadata
-
+from app.youtube.transcriptions import download_transcription
 yt_router = APIRouter(
     prefix="/youtube",
     tags=["youtube", "transcription", "summarization"],
@@ -82,15 +82,15 @@ def yt_transcription(
             return ApiProcessingResult(result=True, error=None, transcription=transcription, format=yt_request.response_format)
     except Exception as e:
         logging.error(f"Error processing YouTube transcription: {str(e)}")
-        
+
         if process_id:
             process_failed(process_id, str(e))
 
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return ApiProcessingResult(
-            result=False, 
-            error=f"Internal server error: {str(e)}", 
-    )
+            result=False,
+            error=f"Internal server error: {str(e)}",
+        )
 
 
 def save_dir_path(url):
@@ -114,7 +114,7 @@ def yt_summarize(
         request: Request,
         yt_request: YtVideoSummarize,
         response: Response,
-        current_user: User =Depends(get_current_active_user)
+        current_user: User = Depends(get_current_active_user)
 ):
     """
     Summarize a YouTube video.
@@ -125,7 +125,7 @@ def yt_summarize(
 
     Returns:
         ApiProcessingResult: The summarization result.
-        
+
     Description:
         This endpoint transcribes a YouTube video and then summarizes the transcription.
         It can return the result as plain text or JSON based on the Accept header.
@@ -146,19 +146,33 @@ def yt_summarize(
         )
 
         save_dir = save_dir_path(yt_request.url)
-        
-        transcription = yt_transcribe(yt_request.url,save_dir, yt_request.lang, WHISPER_RESPONSE_FORMAT.SRT)
+
+        transcription = None
+
+        if yt_request.use_yt_transcription:
+            logging.info(
+                f" Using YT transcription: '{yt_request.url}' for language '{yt_request.lang}'")
+            transcription = download_transcription(
+                yt_request.url, yt_request.lang, save_dir)
+            logging.debug(
+                f"Downloaded transcription\n-----------------\n\n{transcription}\n-----------------\n\n")
+
+        if not transcription:
+            transcription = yt_transcribe(
+                yt_request.url, save_dir, yt_request.lang, WHISPER_RESPONSE_FORMAT.SRT)
+
         register_process_artifact(
-            current_user, process_id, 
-            ProcessArtifactType.TRANSCRIPTION, 
-            transcription, 
+            current_user, process_id,
+            ProcessArtifactType.TRANSCRIPTION,
+            transcription,
             ProcessArtifactFormat.TEXT, yt_request.lang)
 
-        summarization = summarize(transcription, yt_request.type, yt_request.lang)
+        summarization = summarize(
+            transcription, yt_request.type, yt_request.lang)
         register_process_artifact(
-            current_user, process_id, 
-            ProcessArtifactType.SUMMARY, 
-            summarization, 
+            current_user, process_id,
+            ProcessArtifactType.SUMMARY,
+            summarization,
             ProcessArtifactFormat.TEXT, yt_request.lang)
 
         logging.debug(f"yt summarize - Result: \n{summarization}")
@@ -181,12 +195,12 @@ def yt_summarize(
 
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return ApiProcessingResult(
-            result=False, 
+            result=False,
             error="Error processing YouTube summarization",
-            text=str(e)) 
+            text=str(e))
 
 
-@yt_router.post("/details", response_model=YoutubeMetadata|ApiProcessingResult)
+@yt_router.post("/details", response_model=YoutubeMetadata | ApiProcessingResult)
 def yt_details(
         request: YtVideoInfoRequest,
         response: Response,
@@ -212,7 +226,7 @@ def yt_details(
             - available_transcriptions: A list of available transcription language codes.
             - upload_date: The date the video was uploaded.
             - thumbnail: The URL of the video thumbnail.
-    
+
     Description:
         This endpoint retrieves detailed metadata for a YouTube video using the provided URL.
 
@@ -220,40 +234,17 @@ def yt_details(
         HTTPException: If there's an error fetching the video metadata.
     """
 
-    process_id = None
     try:
         logging.info(f"Getting YT video details: {request.url}")
 
-        process_id = register_new_process(
-            current_user,
-            RequestType.YOUTUBE,
-            request=request,
-            request_data={
-                "yt_details": request.model_dump()}
-        )
-
         metadata = get_youtube_metadata(request.url)
 
-        update_process_status(
-            process_id,
-            CompletedProcess(
-                user_id=current_user.id,
-                status=RequestStatus.COMPLETED,
-                result=str(metadata),   
-                result_format=ProcessArtifactFormat.JSON,
-                lang=LANG_CODE.ENGLISH
-            )
-        )
-        
         return metadata
     except Exception as e:
         logging.error(f"Error fetching YouTube video details: {str(e)}")
-        if process_id:
-            process_failed(process_id, str(e))
 
-        
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return ApiProcessingResult(
-            result=False, 
+            result=False,
             error=f"Error processing YouTube details extraction: {str(e)}",
-            text=str(e)) 
+            text=str(e))

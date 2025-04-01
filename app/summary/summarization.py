@@ -16,7 +16,7 @@ def get_template(type):
         SUMMARIZATION_TYPE.CONCISE:
             """Write a concise summary in language code={lang} of the following:\n"{text}"\nCONCISE SUMMARY:""",
         SUMMARIZATION_TYPE.TLDR:
-            """Imagine you're a news reporter who has only 30 seconds to summarize this article in language code={lang} for a broadcast.\n{text}""",
+            """Imagine you're a researcher who has only 30 seconds to summarize this article in language code={lang}. It should be based on the provided text and give 3 the most important details. \n{text}""",
         SUMMARIZATION_TYPE.DETAILED:
             """As a professional summarizer, create a detailed, in-depth, and concise summary in language code={lang} of the provided text, while strongly adhering to these guidelines: 
             - Incorporate main ideas and essential information, eliminating extraneous language and focusing on critical aspects. 
@@ -48,7 +48,8 @@ def get_template(type):
 )
 @conditional_lru_cache
 def summarize(text: str, type: SUMMARIZATION_TYPE, lang: LANG_CODE):
-    logging.info(f"Summarizing text with type: ${type}, lang code: {lang.value}")
+    logging.info(
+        f"Summarizing text with type: '{type}', lang code: '{lang.value}'")
 
     if not text:
         logging.warning("Text is empty, returning empty string")

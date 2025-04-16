@@ -256,3 +256,5 @@ cython_debug/
 /.idea/vcs.xml
 
 .node_modules
+
+./scripts/data/chunks

@@ -1,7 +1,9 @@
 import hashlib
 import logging
+import os
 
 from fastapi import APIRouter, Request, Depends, Response, status
+from fastapi.responses import FileResponse
 from starlette.responses import PlainTextResponse
 
 from app.auth import get_current_active_user
@@ -185,6 +187,9 @@ def yt_summarize(
         # If the Accept header is "text/plain", return plain text
         if accept_header == "text/plain":
             return PlainTextResponse(summarization)
+        elif accept_header == "text/srt":
+            # return as a file
+            return FileResponse(transcription, media_type="text/srt")
         else:
             return SummaryResult(summary=summarization)
     except Exception as e:

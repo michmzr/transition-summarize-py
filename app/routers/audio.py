@@ -5,6 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import UploadFile, APIRouter, Response, status, Form, Request, Depends, HTTPException
+from fastapi.responses import FileResponse
 from starlette.responses import PlainTextResponse
 
 from app.auth import get_current_active_user
@@ -53,7 +54,7 @@ def audio_trans(
     """
     logging.info(f"audio transcribe api - file name: {uploaded_file.filename}, "
         f" content_type: {uploaded_file.content_type}, transcription response format: ${transcription_response_format}")
-    
+
     process_id = None
     try:
         if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video"):
@@ -71,20 +72,20 @@ def audio_trans(
             return ApiProcessingResult(result=False,
                                     error=f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted",
                                     )
-        
+
         process_id = register_new_process(
             current_user,
             RequestType.AUDIO,
             request=request,
             request_data={
-                "file_name": uploaded_file.filename, 
+                "file_name": uploaded_file.filename,
                 "file_type": uploaded_file.content_type,
-                "lang": lang, 
+                "lang": lang,
                 "format": transcription_response_format}
         )
 
         transcription = transcribe_uploaded_file(uploaded_file, lang, transcription_response_format)
-        
+
         update_process_status(process_id, CompletedProcess(
             user_id=current_user.id,
             status=RequestStatus.COMPLETED,
@@ -99,12 +100,16 @@ def audio_trans(
         accept_header = request.headers.get("Accept", "application/json")
         if accept_header == "text/plain":
             return PlainTextResponse(transcription)
+        elif accept_header == "text/srt":
+            # return as a file
+            file_name = os.path.splitext(uploaded_file.filename)[0] + ".srt"
+            return FileResponse(transcription, media_type="text/srt", filename=file_name)
         else:
             return ApiProcessingResult(result=True, error=None, transcription=transcription,
                                     format=transcription_response_format)
     except Exception as e:
         logging.error(f"Error in audio transcribe endpoint: {str(e)}", exc_info=True)
-        
+
         if process_id:
             process_failed(process_id, str(e))
 
@@ -164,9 +169,9 @@ def audio_summarize(
                 RequestType.AUDIO,
                 request=request,
                 request_data={
-                    "file_name": uploaded_file.filename, 
+                    "file_name": uploaded_file.filename,
                     "file_type": uploaded_file.content_type,
-                    "lang": lang, 
+                    "lang": lang,
                     "format": type.name}
             )
 
@@ -174,7 +179,7 @@ def audio_summarize(
             transcription = transcribe_uploaded_file(uploaded_file, lang, WHISPER_RESPONSE_FORMAT.SRT)
             register_process_artifact(
                 current_user, process_id, ProcessArtifactType.TRANSCRIPTION, transcription, ProcessArtifactFormat.TEXT, lang)
-            
+
             # Update status before summarization
             summary = summarize(transcription, type, lang)
             register_process_artifact(
@@ -182,7 +187,7 @@ def audio_summarize(
 
             # Mark process as completed
             complete_process(process_id)
-            
+
             logging.info("Completed processing audio file. Returning summary.")
 
             accept_header = request.headers.get("Accept", "application/json")
@@ -238,7 +243,7 @@ def list_files_with_file_extension(directory, file_extension):
 def transcribe_file(save_path: str, file: str):
     try:
         logging.info(f"Starting transcription for file '{file}'")
-        
+
         logging.debug(f"Reading audio file '{file}'...")
         with open(file, 'rb') as audio_file:
             try:
@@ -250,7 +255,7 @@ def transcribe_file(save_path: str, file: str):
         output = os.path.splitext(os.path.basename(file))[0] + ".txt"
         logging.info(f"Saving transcription to {output}")
         file_name = os.path.join(save_path, output)
-        
+
         try:
             with open(file_name, "x") as f:
                 f.write(transcription)
@@ -263,7 +268,7 @@ def transcribe_file(save_path: str, file: str):
 
         logging.info(f"Successfully transcribed and saved {file}")
         return True
-        
+
     except Exception as e:
         logging.error(f"Failed to process {file}: {str(e)}")
         raise

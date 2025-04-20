@@ -7,11 +7,13 @@ from pathlib import Path as p
 import os
 import re
 import argparse
+import concurrent.futures
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from langchain import PromptTemplate
 from langchain.chains.summarize import load_summarize_chain
+from langchain_anthropic import ChatAnthropic
 from langchain_openai import ChatOpenAI
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_community.document_loaders import TextLoader
@@ -202,7 +204,7 @@ def prompts01(lang: str):
             My needs:
             - I want to get super detailed summary of super important text. I use it for my research job and i need to get all the details from the text.
 
-            I will pay you extra if you can provide me with a very detailed summary of the text. I need to get all the details from the text.
+            I will pay you extra if you can provide me with a very detailed summary of the text in the language of the text. I need to get all the details from the text.
 
             ###
             {text}
@@ -220,6 +222,7 @@ def map_reduce_chain(llm, docs, chunk_prompt: PromptTemplate, combine_prompt: Pr
         llm,
         chain_type="map_reduce",
         map_prompt=chunk_prompt,
+        token_max=10000,
         combine_prompt=combine_prompt,
         return_intermediate_steps=True,
     )
@@ -255,6 +258,29 @@ def summarize_map_reduce(llm, docs, chunk_prompt: PromptTemplate, combine_prompt
         llm, docs, chunk_prompt, combine_prompt)
     return analyze_map_reduce_outputs(map_reduce_outputs)
 
+
+def run_model_map_reduce(model_name: str, docs: List, prompts: Tuple[PromptTemplate, PromptTemplate], output_dir: str):
+    """Process a single model"""
+    print(f"Running {model_name}")
+
+    if model_name.startswith("gpt"):
+        llm = ChatOpenAI(model=model_name, temperature=0)
+    elif model_name.startswith("claude"):
+        llm = ChatAnthropic(model=model_name, temperature=0)
+
+    # Map reduce chain
+    map_reduce_outputs = summarize_map_reduce(
+        llm, docs, prompts[0], prompts[1])
+
+    # Save map reduce outputs to file
+    print(f"Saving {model_name} outputs to {output_dir}")
+    with open(os.path.join(output_dir, model_name + "_map_reduce_parts_outputs.json"), "w") as f:
+        f.write(str(map_reduce_outputs))
+    with open(os.path.join(output_dir, model_name + "_map_reduce_summary.md"), "w") as f:
+        f.write(str(map_reduce_outputs[0]["concise_summary"]))
+
+    return model_name
+
 def main():
     parser = argparse.ArgumentParser(
         description='Split an SRT file into chunks of specified duration.')
@@ -277,22 +303,33 @@ def main():
     print(f"Created {len(chunks)} chunks")
 
     # Set up LangChain
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    models = ["gpt-4o", "gpt-4o-mini", "claude-3-7-sonnet-20250219",
+              "claude-3-5-haiku-20241022"]  #
 
-    # Load chunks to LangChain
+    # Load chunks to LangChain once (shared across all models)
     docs = []
     for chunk in chunks:
         docs.extend(TextLoader(chunk).load())
 
-    # Map reduce chain
+    # Prepare prompts once (shared across all models)
     prompts = prompts01(lang)
-    map_reduce_outputs = summarize_map_reduce(
-        llm, docs, prompts[0], prompts[1])
 
-    # Save map reduce outputs to file
-    print(f"Saving map reduce outputs to {args.output_dir}")
-    with open(os.path.join(args.output_dir, llm.model_name + "_map_reduce_outputs.txt"), "w") as f:
-        f.write(str(map_reduce_outputs))
+    # Run models in parallel
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = []
+        for model in models:
+            futures.append(
+                executor.submit(run_model_map_reduce, model, docs,
+                                prompts, args.output_dir)
+            )
+
+        # Wait for all tasks to complete
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                model_name = future.result()
+                print(f"Completed processing for {model_name}")
+            except Exception as e:
+                print(f"Error processing model: {e}")
 
     # Remove chunks
     for chunk in chunks:

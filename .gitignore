@@ -258,3 +258,4 @@ cython_debug/
 .node_modules
 
 ./scripts/data/chunks
+./scripts/data/chunks/*

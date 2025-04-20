@@ -2,6 +2,7 @@
 """
 Script to load an SRT file and split it into customizable time chunks.
 """
+from pathlib import Path as p
 
 import os
 import re
@@ -9,7 +10,12 @@ import argparse
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-
+from langchain import PromptTemplate
+from langchain.chains.summarize import load_summarize_chain
+from langchain_openai import ChatOpenAI
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_community.document_loaders import TextLoader
+import langsmith as ls
 
 @dataclass
 class SubtitleEntry:
@@ -143,6 +149,112 @@ def write_chunk_to_srt(chunk: List[SubtitleEntry], output_path: str) -> None:
             f.write(f"{entry.text}\n\n")
 
 
+def chunk_transcript(output_dir: str, trans_file_path: str, chunk_duration_minutes: int) -> List[str]:
+    # Parse the SRT file
+    entries = parse_srt_file(trans_file_path)
+    print(f"Found {len(entries)} subtitle entries")
+
+    # Split into chunks
+    print(f"Splitting into chunks of {chunk_duration_minutes} minutes")
+    chunks = split_into_chunks(entries, chunk_duration_minutes)
+    print(f"Created {len(chunks)} chunks")
+
+    chunks_paths = []
+    # Write chunks to files
+    for i, chunk in enumerate(chunks, 1):
+        output_path = os.path.join(output_dir, f"chunk_{i:03d}.srt")
+        write_chunk_to_srt(chunk, output_path)
+        print(f"Wrote chunk {i} to {output_path}")
+        chunks_paths.append(output_path)
+
+    return chunks_paths
+
+
+def prompts01(lang: str):
+    map_prompt_template = """
+                        Write a summary of this chunk of text that includes the main points and any important details.
+                        Strongly adhere to the following guidelines:
+                            - Incorporate main ideas and essential information, eliminating extraneous language and focusing on critical aspects.
+                            - Rely strictly on the provided text, without including external information.
+                            - Format the summary in paragraph form for easy understanding.
+                            - If chunks describes any technniques, approaches, strategies,patterns, methods, tools, software, hardware, services, products etc. list them in seperated subsections. Give as mush details as possible ,If empty, just skip it
+                            - Prepare very detailed bullet points list: what happened, subjects, details, people, places, things, events, etc.
+                        ###
+                        {text}
+                        """
+
+    chunk_prompt = PromptTemplate(
+        template=map_prompt_template, input_variables=["text"])
+
+    combine_prompt_template = """As a professional summarizer, create a detailed, in-depth, and concise summary in language code="""+lang+""" of the provided text, while strongly adhering to these guidelines:
+            - Incorporate main ideas and essential information, eliminating extraneous language and focusing on critical aspects.
+            - Rely strictly on the provided text, without including external information.
+            - Format the summary in paragraph form for easy understanding.
+            - The entire content should be organized in a clear and logical manner
+            - use markdown to format the text, you can use emojis, bullet points, numbered lists, etc. to make the summary more engaging and easy to read.
+
+            Include extra information such as:
+            - list of mentioned articles, books, podcasts,persons, movies etc. in seperated subsections. If empty, just skip it
+            - list of guidelines, practises,techniques, rules, principles, steps, procedures etc. in seperated subsections. If empty, just skip it
+            - list of examples, scenarios, use cases, case studies etc. in seperated subsections. If empty, just skip it
+            - list of tools, software, hardware, services, products etc. in seperated subsections. If empty, just skip it
+
+            My needs:
+            - I want to get super detailed summary of super important text. I use it for my research job and i need to get all the details from the text.
+
+            I will pay you extra if you can provide me with a very detailed summary of the text. I need to get all the details from the text.
+
+            ###
+            {text}
+            """
+
+    combine_prompt = PromptTemplate(
+        template=combine_prompt_template, input_variables=["text"]
+    )
+
+    return chunk_prompt, combine_prompt
+
+
+def map_reduce_chain(llm, docs, chunk_prompt: PromptTemplate, combine_prompt: PromptTemplate):
+    map_reduce_chain = load_summarize_chain(
+        llm,
+        chain_type="map_reduce",
+        map_prompt=chunk_prompt,
+        combine_prompt=combine_prompt,
+        return_intermediate_steps=True,
+    )
+    map_reduce_outputs = map_reduce_chain(
+        {"input_documents": docs})
+    return map_reduce_outputs
+
+
+def analyze_map_reduce_outputs(map_reduce_outputs):
+    final_mp_data = []
+
+    for doc, out in zip(
+        map_reduce_outputs["input_documents"], map_reduce_outputs["intermediate_steps"]
+    ):
+        output = {}
+        output["file_name"] = p(doc.metadata["source"]).stem
+        output["file_type"] = p(doc.metadata["source"]).suffix
+        output["chunks"] = doc.page_content
+        output["concise_summary"] = out
+        final_mp_data.append(output)
+
+    return final_mp_data
+
+
+@ls.traceable(
+    run_type="prompt",
+    name="Test Long Summary Map Reduce",
+    tags=["smap_reduce"],
+    metadata={"flow": "test_long_summary"}
+)
+def summarize_map_reduce(llm, docs, chunk_prompt: PromptTemplate, combine_prompt: PromptTemplate):
+    map_reduce_outputs = map_reduce_chain(
+        llm, docs, chunk_prompt, combine_prompt)
+    return analyze_map_reduce_outputs(map_reduce_outputs)
+
 def main():
     parser = argparse.ArgumentParser(
         description='Split an SRT file into chunks of specified duration.')
@@ -155,26 +267,36 @@ def main():
 
     args = parser.parse_args()
 
+    lang = "pl"
+
     # Create output directory if it doesn't exist
     os.makedirs(args.output_dir, exist_ok=True)
 
-    # Parse the SRT file
-    print(f"Parsing SRT file: {args.input}")
-    entries = parse_srt_file(args.input)
-    print(f"Found {len(entries)} subtitle entries")
-
-    # Split into chunks
-    print(f"Splitting into chunks of {args.chunk_duration} minutes")
-    chunks = split_into_chunks(entries, args.chunk_duration)
+    # Make chunks
+    chunks = chunk_transcript(args.output_dir, args.input, args.chunk_duration)
     print(f"Created {len(chunks)} chunks")
 
-    # Write chunks to files
-    for i, chunk in enumerate(chunks, 1):
-        output_path = os.path.join(args.output_dir, f"chunk_{i:03d}.srt")
-        write_chunk_to_srt(chunk, output_path)
-        print(f"Wrote chunk {i} to {output_path}")
+    # Set up LangChain
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
-    print("Done!")
+    # Load chunks to LangChain
+    docs = []
+    for chunk in chunks:
+        docs.extend(TextLoader(chunk).load())
+
+    # Map reduce chain
+    prompts = prompts01(lang)
+    map_reduce_outputs = summarize_map_reduce(
+        llm, docs, prompts[0], prompts[1])
+
+    # Save map reduce outputs to file
+    print(f"Saving map reduce outputs to {args.output_dir}")
+    with open(os.path.join(args.output_dir, llm.model_name + "_map_reduce_outputs.txt"), "w") as f:
+        f.write(str(map_reduce_outputs))
+
+    # Remove chunks
+    for chunk in chunks:
+        os.remove(chunk)
 
 
 if __name__ == "__main__":

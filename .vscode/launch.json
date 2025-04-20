@@ -22,6 +22,20 @@
             "jinja": true,
             "justMyCode": false,
             "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "Debug SRT Summary Script",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/long-srt-summary.py",
+            "args": [
+                "--input", "${workspaceFolder}/scripts/data/30min.srt",
+                "--output-dir", "${workspaceFolder}/scripts/data/chunks",
+                "--chunk-duration", "10"
+            ],
+            "justMyCode": false,
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
         }
     ]
 }

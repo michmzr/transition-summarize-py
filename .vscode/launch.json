@@ -22,6 +22,34 @@
             "jinja": true,
             "justMyCode": false,
             "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "Debug SRT Summary Script",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/long-srt-summary.py",
+            "args": [
+                "--input", "${workspaceFolder}/scripts/data/30min.srt",
+                "--output-dir", "${workspaceFolder}/scripts/data/chunks",
+                "--chunk-duration", "20"
+            ],
+            "justMyCode": false,
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug SRT LONG Summary Script",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/long-srt-summary.py",
+            "args": [
+                "--input", "${workspaceFolder}/scripts/data/long.txt",
+                "--output-dir", "${workspaceFolder}/scripts/data/chunks",
+                "--chunk-duration", "20"
+            ],
+            "justMyCode": false,
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
         }
     ]
 }

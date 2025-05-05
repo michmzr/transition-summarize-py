@@ -98,11 +98,13 @@ def audio_trans(
         logging.info("Completed processing audio file. Returning transcription.")
 
         accept_header = request.headers.get("Accept", "application/json")
+        logging.info(f"Accept header: {accept_header}")
         if accept_header == "text/plain":
             return PlainTextResponse(transcription)
         elif accept_header == "text/srt":
             # return as a file
             file_name = os.path.splitext(uploaded_file.filename)[0] + ".srt"
+            logging.info(f"File name: {file_name}")
             return FileResponse(transcription, media_type="text/srt", filename=file_name)
         else:
             return ApiProcessingResult(result=True, error=None, transcription=transcription,

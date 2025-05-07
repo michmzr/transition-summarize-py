@@ -15,6 +15,7 @@ from app.schema.models import ProcessArtifactType, RequestStatus, RequestType, P
 from app.schema.pydantic_models import CompletedProcess, User
 from app.summary.summarization import summarize
 from app.transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT, transcribe
+from app.utils.files import string_to_filename
 
 VALID_AUDIO_EXTENSIONS = ('flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm')
 
@@ -58,7 +59,6 @@ def audio_trans(
     process_id = None
     try:
         if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video"):
-            update_process_status(process_id, "failed", "Invalid file type")
             response.status_code = status.HTTP_400_BAD_REQUEST
             return ApiProcessingResult(
                 result=False,
@@ -66,8 +66,6 @@ def audio_trans(
             )
 
         if not uploaded_file.filename.endswith(VALID_AUDIO_EXTENSIONS):
-            update_process_status(process_id, "failed", f"Invalid file extension")
-
             response.status_code = status.HTTP_400_BAD_REQUEST
             return ApiProcessingResult(result=False,
                                     error=f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted",
@@ -99,16 +97,23 @@ def audio_trans(
 
         accept_header = request.headers.get("Accept", "application/json")
         logging.info(f"Accept header: {accept_header}")
+        ext = transcription_response_format.value
+
         if accept_header == "text/plain":
             return PlainTextResponse(transcription)
-        elif accept_header == "text/srt":
+        elif accept_header == "text/"+ext:
             # return as a file
-            file_name = os.path.splitext(uploaded_file.filename)[0] + ".srt"
+            file_name = os.path.splitext(uploaded_file.filename)[0]
+            file_name = string_to_filename(file_name) + "." + ext
             logging.info(f"File name: {file_name}")
-            return FileResponse(transcription, media_type="text/srt", filename=file_name)
+
+            # Save transcription as a temporary file
+            with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as temp:
+                temp.write(transcription.encode('utf-8'))
+                temp.flush()
+                return FileResponse(temp.name, media_type="text/"+ext, filename=file_name)
         else:
-            return ApiProcessingResult(result=True, error=None, transcription=transcription,
-                                    format=transcription_response_format)
+            return ApiProcessingResult(result=True, text=transcription)
     except Exception as e:
         logging.error(f"Error in audio transcribe endpoint: {str(e)}", exc_info=True)
 
@@ -118,7 +123,8 @@ def audio_trans(
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return ApiProcessingResult(
             result=False,
-            error="An error occurred while processing the audio file",
+            error="Error in audio transcribtion ",
+            text="An error occurred while processing the audio file",
         )
 
 @a_router.post("/summary", response_model=SummaryResult)

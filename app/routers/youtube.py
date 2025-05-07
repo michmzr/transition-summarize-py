@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import os
+import tempfile
 
 from fastapi import APIRouter, Request, Depends, Response, status
 from fastapi.responses import FileResponse
@@ -14,6 +15,7 @@ from app.schema.models import ProcessArtifactFormat, ProcessArtifactType, Reques
 from app.schema.pydantic_models import CompletedProcess, User
 from app.summary.summarization import summarize
 from app.transcribe.transcription import yt_transcribe, WHISPER_RESPONSE_FORMAT
+from app.utils.files import string_to_filename
 from app.youtube.metadata import get_youtube_metadata
 from app.youtube.transcriptions import download_transcription
 yt_router = APIRouter(
@@ -50,12 +52,16 @@ def yt_transcription(
     try:
         logging.info(f"yt transcribe - request details: {yt_request}")
 
+        details = get_youtube_metadata(yt_request.url)
+        logging.info(f"YT details: {details}")
+
         process_id = register_new_process(
             current_user,
             request_type=RequestType.YOUTUBE,
             request=request,
             request_data={
-                "yt_request": yt_request.model_dump()}
+                "yt_request": yt_request.model_dump(),
+                "yt_details": {"name": details.title, "channel": details.channel_url, "description": details.description}}
         )
 
         save_dir = save_dir_path(yt_request.url)
@@ -77,20 +83,23 @@ def yt_transcription(
         # Get the Accept header from the request
         accept_header = request.headers.get("Accept", "application/json")
         logging.info(f"Accept header: {accept_header}")
-
-        details = get_youtube_metadata(yt_request.url)
-        logging.info(f"YT details: {details}")
+        ext = yt_request.response_format.value
 
         if accept_header == "text/plain":
             return PlainTextResponse(transcription)
-        elif accept_header == "text/srt":
+        elif accept_header == "text/"+ext:
             # return as a file - encode name to be safe as filename
-            ext = yt_request.response_format.value
-            file_name = details.title.replace(" ", "_") + ext
+            video_name = details.title.replace(" ", "_")[:10]
+            file_name = string_to_filename(video_name) + "." + ext
             logging.info(f"File name: {file_name}")
-            return FileResponse(transcription, media_type="text/"+ext, filename=file_name)
+
+            # Save transcription as a temporary file
+            with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as temp:
+                temp.write(transcription.encode('utf-8'))
+                temp.flush()
+                return FileResponse(temp.name, media_type="text/"+ext, filename=file_name)
         else:
-            return ApiProcessingResult(result=True, error=None, transcription=transcription, format=yt_request.response_format)
+            return ApiProcessingResult(result=True, text=transcription)
     except Exception as e:
         logging.error(f"Error processing YouTube transcription: {str(e)}")
 

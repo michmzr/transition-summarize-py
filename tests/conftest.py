@@ -48,7 +48,7 @@ def override_settings():
     settings.is_local = True
     settings.enable_registration = True
     settings.database_url = None  # Will be set by postgres_container fixture
-    
+
     # Override environment variables for testing
     os.environ.update({
         "IS_LOCAL": "true",
@@ -60,29 +60,29 @@ def override_settings():
         "SECRET_KEY": "test_secret_key",
         "OPENAI_API_KEY": "test_openai_key",
     })
-    
+
     return settings
 
 @pytest.fixture(scope="session")
 def postgres_container(override_settings):
     postgres_container = PostgresContainer("postgres:15-alpine")
-    
+
     # Set default PostgreSQL credentials
     POSTGRES_USER = "postgres"
     POSTGRES_PASSWORD = "postgres"
     POSTGRES_DB = "postgres"
-    
+
     # Configure container with credentials
     postgres_container.with_env("POSTGRES_USER", POSTGRES_USER)
     postgres_container.with_env("POSTGRES_PASSWORD", POSTGRES_PASSWORD)
     postgres_container.with_env("POSTGRES_DB", POSTGRES_DB)
     postgres_container.with_env("POSTGRES_HOST_AUTH_METHOD", "trust")
-    
+
     # Configure container startup
     postgres_container.with_env("PGDATA", "/var/lib/postgresql/data")
     postgres_container.with_env("POSTGRES_INITDB_ARGS", "--auth=trust")
     postgres_container.start_timeout = 60
-    
+
     # Configure health check
     postgres_container.with_command([
         "postgres",
@@ -92,37 +92,37 @@ def postgres_container(override_settings):
         "-c", "synchronous_commit=off",
         "-c", "full_page_writes=off"
     ])
-    
+
     # Use random available port
     postgres_container.with_bind_ports(5432, 0)
-    
+
     try:
         testcontainers_logger.info("Starting PostgreSQL container...")
         postgres_container.start()
-        
+
         # Print container logs immediately after start
         print("\n=== PostgreSQL Container Logs ===")
-        print(postgres_container.get_container().logs().decode())
+        print(postgres_container._container.logs().decode())
         print("=================================\n")
-        
+
         # Get the actual port and create database URL
         actual_port = postgres_container.get_exposed_port(5432)
         db_url = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:{actual_port}/{POSTGRES_DB}"
-        
+
         # Update settings
         override_settings.database_url = db_url
         os.environ["POSTGRES_URL"] = db_url
-        
+
         # Monitor container logs during test execution
         def print_logs():
             while True:
-                print(postgres_container.get_container().logs().decode())
+                print(postgres_container._container.logs().decode())
                 time.sleep(5)
-        
+
         import threading
         log_thread = threading.Thread(target=print_logs, daemon=True)
         log_thread.start()
-        
+
         yield postgres_container
     except Exception as e:
         testcontainers_logger.error(f"Failed to start PostgreSQL container: {e}")
@@ -154,14 +154,14 @@ def db_session(engine):
 @pytest.fixture(autouse=True)
 def override_db_session(monkeypatch, engine):
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    
+
     def override_get_db():
         db = TestingSessionLocal()
         try:
             yield db
         finally:
             db.close()
-    
+
     from app import database
     monkeypatch.setattr(database, "SessionLocal", TestingSessionLocal)
 
@@ -170,11 +170,11 @@ def test_db(postgres_container):
     """Get a test database session"""
     session_maker = get_session_maker()
     db = session_maker()
-    
+
     yield db
 
     print("Cleaning up test database")
-    
+
     # Cleanup after each test
     db.rollback()
     for table in reversed(Base.metadata.sorted_tables):

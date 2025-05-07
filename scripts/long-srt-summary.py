@@ -174,7 +174,7 @@ def chunk_transcript(output_dir: str, trans_file_path: str, chunk_duration_minut
 
 def prompts01(lang: str):
     map_prompt_template = """
-                        Write a summary of this chunk of text that includes the main points and any important details.
+                        Write a summary in language with code='{lang}' of this chunk of text that includes the main points and any important details.
                         Strongly adhere to the following guidelines:
                             - Incorporate main ideas and essential information, eliminating extraneous language and focusing on critical aspects.
                             - Rely strictly on the provided text, without including external information.
@@ -186,9 +186,9 @@ def prompts01(lang: str):
                         """
 
     chunk_prompt = PromptTemplate(
-        template=map_prompt_template, input_variables=["text"])
+        template=map_prompt_template, input_variables=["text", "lang"])
 
-    combine_prompt_template = """As a professional summarizer, create a detailed, in-depth, and concise summary in language code="""+lang+""" of the provided text, while strongly adhering to these guidelines:
+    combine_prompt_template = """As a professional summarizer, create a detailed, in-depth, and concise summary in language with code='{lang}' of the provided text, while strongly adhering to these guidelines:
             - Incorporate main ideas and essential information, eliminating extraneous language and focusing on critical aspects.
             - Rely strictly on the provided text, without including external information.
             - Format the summary in paragraph form for easy understanding.
@@ -211,13 +211,13 @@ def prompts01(lang: str):
             """
 
     combine_prompt = PromptTemplate(
-        template=combine_prompt_template, input_variables=["text"]
+        template=combine_prompt_template, input_variables=["text", "lang"]
     )
 
     return chunk_prompt, combine_prompt
 
 
-def map_reduce_chain(llm, docs, chunk_prompt: PromptTemplate, combine_prompt: PromptTemplate):
+def map_reduce_chain(llm, docs, chunk_prompt: PromptTemplate, combine_prompt: PromptTemplate, lang: str):
     map_reduce_chain = load_summarize_chain(
         llm,
         chain_type="map_reduce",
@@ -227,7 +227,7 @@ def map_reduce_chain(llm, docs, chunk_prompt: PromptTemplate, combine_prompt: Pr
         return_intermediate_steps=True,
     )
     map_reduce_outputs = map_reduce_chain(
-        {"input_documents": docs})
+        {"input_documents": docs, "lang": lang})
     return map_reduce_outputs
 
 
@@ -253,13 +253,13 @@ def analyze_map_reduce_outputs(map_reduce_outputs):
     tags=["smap_reduce"],
     metadata={"flow": "test_long_summary"}
 )
-def summarize_map_reduce(llm, docs, chunk_prompt: PromptTemplate, combine_prompt: PromptTemplate):
+def summarize_map_reduce(llm, docs, chunk_prompt: PromptTemplate, combine_prompt: PromptTemplate, lang: str):
     map_reduce_outputs = map_reduce_chain(
-        llm, docs, chunk_prompt, combine_prompt)
+        llm, docs, chunk_prompt, combine_prompt, lang)
     return analyze_map_reduce_outputs(map_reduce_outputs)
 
 
-def run_model_map_reduce(model_name: str, docs: List, prompts: Tuple[PromptTemplate, PromptTemplate], output_dir: str):
+def run_model_map_reduce(model_name: str, docs: List, prompts: Tuple[PromptTemplate, PromptTemplate], output_dir: str, lang: str):
     """Process a single model"""
     print(f"Running {model_name}")
 
@@ -270,7 +270,7 @@ def run_model_map_reduce(model_name: str, docs: List, prompts: Tuple[PromptTempl
 
     # Map reduce chain
     map_reduce_outputs = summarize_map_reduce(
-        llm, docs, prompts[0], prompts[1])
+        llm, docs, prompts[0], prompts[1], lang)
 
     # Save map reduce outputs to file
     print(f"Saving {model_name} outputs to {output_dir}")
@@ -284,16 +284,18 @@ def run_model_map_reduce(model_name: str, docs: List, prompts: Tuple[PromptTempl
 def main():
     parser = argparse.ArgumentParser(
         description='Split an SRT file into chunks of specified duration.')
-    parser.add_argument('--input', '-i', type=str, default='scripts/data/30min.srt',
+    parser.add_argument('--input', '-i', type=str, default='scripts/data/automat.srt',
                         help='Path to the input SRT file')
     parser.add_argument('--output-dir', '-o', type=str, default='scripts/data/chunks',
                         help='Directory to save the output chunks')
     parser.add_argument('--chunk-duration', '-d', type=int, default=10,
                         help='Duration of each chunk in minutes')
+    parser.add_argument('--lang', '-l', type=str, default='pl',
+                        help='Language code for summarization')
 
     args = parser.parse_args()
 
-    lang = "pl"
+    lang = args.lang
 
     # Create output directory if it doesn't exist
     os.makedirs(args.output_dir, exist_ok=True)
@@ -320,7 +322,7 @@ def main():
         for model in models:
             futures.append(
                 executor.submit(run_model_map_reduce, model, docs,
-                                prompts, args.output_dir)
+                                prompts, args.output_dir, lang)
             )
 
         # Wait for all tasks to complete

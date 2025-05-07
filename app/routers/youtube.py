@@ -76,10 +76,19 @@ def yt_transcription(
 
         # Get the Accept header from the request
         accept_header = request.headers.get("Accept", "application/json")
+        logging.info(f"Accept header: {accept_header}")
 
-        # If the Accept header is "text/plain", return plain text
+        details = get_youtube_metadata(yt_request.url)
+        logging.info(f"YT details: {details}")
+
         if accept_header == "text/plain":
             return PlainTextResponse(transcription)
+        elif accept_header == "text/srt":
+            # return as a file - encode name to be safe as filename
+            ext = yt_request.response_format.value
+            file_name = details.title.replace(" ", "_") + ext
+            logging.info(f"File name: {file_name}")
+            return FileResponse(transcription, media_type="text/"+ext, filename=file_name)
         else:
             return ApiProcessingResult(result=True, error=None, transcription=transcription, format=yt_request.response_format)
     except Exception as e:

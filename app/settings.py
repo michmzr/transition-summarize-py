@@ -56,6 +56,58 @@ class Settings(BaseSettings):
     # Environment
     is_local: bool = Field(default=False, alias="IS_LOCAL")
     testing: bool = Field(default=False, json_schema_extra={"env": "TESTING"})
+    environment: str = Field(default="development", alias="ENVIRONMENT")
+
+    # Security settings
+    allowed_origins: str = Field(
+        default="https://summarizer.cybershu.eu",
+        alias="ALLOWED_ORIGINS"
+    )
+    allowed_hosts: str = Field(
+        default="summarizer.cybershu.eu",
+        alias="ALLOWED_HOSTS"
+    )
+    rate_limit_requests: int = Field(default=100, alias="RATE_LIMIT_REQUESTS")
+    rate_limit_period: int = Field(
+        default=60, alias="RATE_LIMIT_PERIOD")  # in seconds
+    enable_rate_limiting: bool = Field(
+        default=True, alias="ENABLE_RATE_LIMITING")
+    enable_https_redirect: bool = Field(
+        default=True, alias="ENABLE_HTTPS_REDIRECT")
+    enable_security_headers: bool = Field(
+        default=True, alias="ENABLE_SECURITY_HEADERS")
+    enable_cors: bool = Field(default=True, alias="ENABLE_CORS")
+
+    @property
+    def is_production(self) -> bool:
+        """Helper method to check if we're in production mode"""
+        return self.environment == "production"
+
+    @property
+    def is_development(self) -> bool:
+        """Helper method to check if we're in development mode"""
+        return self.environment == "development"
+
+    @property
+    def security_config(self) -> dict:
+        """Get security configuration based on environment"""
+        if self.is_production:
+            return {
+                "allowed_origins": self.allowed_origins.split(","),
+                "allowed_hosts": self.allowed_hosts.split(","),
+                "enable_rate_limiting": True,
+                "enable_https_redirect": True,
+                "enable_security_headers": True,
+                "enable_cors": True
+            }
+        return {
+            "allowed_origins": ["*"],
+            "allowed_hosts": ["*"],
+            "enable_rate_limiting": False,
+            "enable_https_redirect": False,
+            "enable_security_headers": True,
+            "enable_cors": False
+        }
 
     # Registration
     enable_registration: bool = Field(default=True, alias="ENABLE_REGISTRATION")

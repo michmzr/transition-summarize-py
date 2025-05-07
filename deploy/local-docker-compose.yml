@@ -1,21 +1,28 @@
 name: local-av-summarizer
 
 services:
-  # av-summarizer-py:
-  #   image: michmzr/av-summarizer-py:latest
-  #   container_name: av-summarizer-py
-  #   ports:
-  #     - "8086:8086"
-  #   volumes:
-  #     - /var/lib/av-summarizer-py/data:/data/downloads
-  #   environment:
-  #     - OPENAI_API_KEY
-  #     - PROXY_SERVERS
-  #     - DATABASE_URL=postgresql://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@localhost:5432/${DATABASE_NAME}
-
-  #   depends_on:
-  #     - db
-  #   restart: unless-stopped
+  av-summarizer-py:
+    image: michmzr/av-summarizer-py:latest
+    container_name: av-summarizer-py
+    ports:
+      - "8086:8086"
+    volumes:
+      - /var/lib/av-summarizer-py/data:/data/downloads
+    environment:
+      - ENVIRONMENT=development
+      - IS_LOCAL=true
+      - ENABLE_CORS=false
+      - ENABLE_RATE_LIMITING=false
+      - ENABLE_HTTPS_REDIRECT=false
+      - ENABLE_SECURITY_HEADERS=true
+      - ALLOWED_ORIGINS=*
+      - ALLOWED_HOSTS=*
+      - OPENAI_API_KEY
+      - PROXY_SERVERS
+      - DATABASE_URL=postgresql://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@localhost:5432/${DATABASE_NAME}
+    depends_on:
+      - db
+    restart: unless-stopped
 
   db:
     image: postgres:17

@@ -7,9 +7,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 # Context variable to store the request ID
-request_id_context: ContextVar[Optional[str]
-                               ] = ContextVar("request_id", default=None)
-
+request_id_context: ContextVar[Optional[str] ] = ContextVar("request_id", default=None)
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:

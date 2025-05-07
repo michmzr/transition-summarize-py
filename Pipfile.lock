@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "67eb449e3bbdfec8f75751cc4b68ceef128cf633b51fd1aee0e4112e51bb5b3b"
+            "sha256": "d3156feb8b6a8ec2f3ca06b549f0cd3406f8ea30022ef103cfa3a6c561bdfd77"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -824,6 +824,15 @@
             "index": "pypi",
             "markers": "python_version >= '3.7'",
             "version": "==2.0.0"
+        },
+        "itsdangerous": {
+            "hashes": [
+                "sha256:c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef",
+                "sha256:e0050c0b7da1eea53ffaf149c0cfbb5c6e2e2b69c4bef22c81fa6eb73e5f6173"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.8'",
+            "version": "==2.2.0"
         },
         "jinja2": {
             "hashes": [

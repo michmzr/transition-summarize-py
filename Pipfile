@@ -89,6 +89,7 @@ psycopg = "*"
 yt-dlp = "*"
 apscheduler = "*"
 langchain-anthropic = "*"
+itsdangerous = "*"
 
 [dev-packages]
 pytest = "*"

@@ -10,8 +10,17 @@ services:
       - /var/lib/av-summarizer-py/data:/data/downloads
     restart: unless-stopped
     env_file: "av-summ.env"
+    environment:
+      - ENVIRONMENT=production
+      - IS_LOCAL=false
+      - ENABLE_CORS=true
+      - ENABLE_RATE_LIMITING=true
+      - ENABLE_HTTPS_REDIRECT=true
+      - ENABLE_SECURITY_HEADERS=true
+      - ALLOWED_ORIGINS=https://summarizer.cybershu.eu
+      - ALLOWED_HOSTS=summarizer.cybershu.eu
     labels:
-      io.portainer.accesscontrol.public  
+      io.portainer.accesscontrol.public
     depends_on:
       - db
 

@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 import static_ffmpeg
 from fastapi import FastAPI, Depends
@@ -15,7 +16,7 @@ from app.routers.youtube import yt_router
 from app.routers.artifacts import router as artifacts_router
 from app.schema import models
 from app.settings import Settings, get_settings
-from app.database import init_db
+from app.database import init_db, get_engine  # Import get_engine
 from app.middleware.request_id import RequestIDMiddleware, RequestIDFilter
 from app.middleware.security import RateLimitMiddleware, SecurityHeadersMiddleware
 from app.scheduler import init_scheduler, add_cron_job
@@ -26,6 +27,19 @@ static_ffmpeg.add_paths()
 
 settings = Settings()
 
+# Define lifespan context manager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Code to run on startup
+    get_engine()  # Ensure engine is created if not already
+    init_db()     # Initialize database (conditionally creates tables)
+    logging.info("Application startup: Database initialized.")
+    yield
+    # Code to run on shutdown (optional)
+    logging.info("Application shutdown.")
+
 app = FastAPI(
     title="Transition Summarize API",
     description="API for summarizing transitions",
@@ -35,6 +49,7 @@ app = FastAPI(
     # Configure for long-running requests
     timeout=600,  # 10 minutes timeout
     keep_alive_timeout=600,  # 10 minutes keep-alive
+    lifespan=lifespan  # Add lifespan manager
 )
 
 # Security middleware
@@ -119,9 +134,6 @@ console_handler.addFilter(RequestIDFilter())
 # Add handlers to logger
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
-
-# Initialize database (only in non-test environment)
-init_db()
 
 # Health api
 @app.get("/health")

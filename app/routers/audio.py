@@ -26,7 +26,7 @@ a_router = APIRouter(
 )
 
 @a_router.post("/transcribe", response_model=ApiProcessingResult)
-def audio_trans(
+async def audio_trans(
         uploaded_file: UploadFile,
         lang: Annotated[LANG_CODE, Form()],
         request: Request,
@@ -82,7 +82,7 @@ def audio_trans(
                 "format": transcription_response_format}
         )
 
-        transcription = transcribe_uploaded_file(uploaded_file, lang, transcription_response_format)
+        transcription = await transcribe_uploaded_file(uploaded_file, lang, transcription_response_format)
 
         update_process_status(process_id, CompletedProcess(
             user_id=current_user.id,
@@ -128,7 +128,7 @@ def audio_trans(
         )
 
 @a_router.post("/summary", response_model=SummaryResult)
-def audio_summarize(
+async def audio_summarize(
         uploaded_file: UploadFile,
         type: Annotated[SUMMARIZATION_TYPE, Form()],
         lang: Annotated[LANG_CODE, Form()],
@@ -184,12 +184,12 @@ def audio_summarize(
             )
 
             # Update status before transcription
-            transcription = transcribe_uploaded_file(uploaded_file, lang, WHISPER_RESPONSE_FORMAT.SRT)
+            transcription = await transcribe_uploaded_file(uploaded_file, lang, WHISPER_RESPONSE_FORMAT.SRT)
             register_process_artifact(
                 current_user, process_id, ProcessArtifactType.TRANSCRIPTION, transcription, ProcessArtifactFormat.TEXT, lang)
 
             # Update status before summarization
-            summary = summarize(transcription, type, lang)
+            summary = await summarize(transcription, type, lang)
             register_process_artifact(
                 current_user, process_id, ProcessArtifactType.SUMMARY, summary, ProcessArtifactFormat.TEXT, lang)
 
@@ -220,17 +220,18 @@ def audio_summarize(
             summary=None
         )
 
-def transcribe_uploaded_file(uploaded_file: UploadFile,
+
+async def transcribe_uploaded_file(uploaded_file: UploadFile,
                              lang: LANG_CODE,
                              response_format: WHISPER_RESPONSE_FORMAT):
     try:
         suffix = os.path.splitext(uploaded_file.filename)[1]
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp:
-            while contents := uploaded_file.file.read(1024 * 1024):
+            while contents := await uploaded_file.read(1024 * 1024):
                 temp.write(contents)
             temp.seek(0)
             with open(temp.name, 'rb') as binary_file:
-                transcription = transcribe(binary_file, lang, response_format)
+                transcription = await transcribe(binary_file, lang, response_format)
                 return transcription
     except Exception as e:
         logging.error(f"Error transcribing file: {str(e)}")

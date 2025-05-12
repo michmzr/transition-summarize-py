@@ -278,7 +278,7 @@ def yt_transcribe(url: str,
     tags=["file", "transcription"],
     metadata={"flow": "transcription"}
 )
-def transcribe(file: BinaryIO,
+async def transcribe(file: BinaryIO,
                lang: LANG_CODE = LANG_CODE.ENGLISH,
                response_format: WHISPER_RESPONSE_FORMAT = WHISPER_RESPONSE_FORMAT.TEXT
                ) -> Union[str, List[object]]:
@@ -303,51 +303,19 @@ def transcribe(file: BinaryIO,
         file.seek(0)
 
     # Get file size reliably
-    size = -1  # Default to unknown size
+    size = -1
     try:
-        # Try FastAPI/Starlette UploadFile attribute
-        if hasattr(file, 'size') and isinstance(getattr(file, 'size'), int):
-            size = file.size
-        # Try getting stats from file descriptor if available
-        elif hasattr(file, 'fileno'):
-            try:
-                file_stats = os.fstat(file.fileno())
-                size = file_stats.st_size
-                # Ensure pointer is reset if fstat moved it (though it shouldn't)
-                if file.seekable():
-                    file.seek(0)
-            # Handle cases like BytesIO or non-disk files
-            except (io.UnsupportedOperation, OSError):
-                pass  # Fall through to other methods
-
-        # If size still unknown and file is seekable, use seek/tell
-        if size == -1 and file.seekable():
-            current_pos = file.tell()
+        if hasattr(file, 'name') and os.path.exists(file.name):
+            size = os.path.getsize(file.name)
+        elif hasattr(file, 'getbuffer'):
+            size = len(file.getbuffer())
+        elif hasattr(file, 'getvalue'):
+            size = len(file.getvalue())
+        elif hasattr(file, 'tell') and hasattr(file, 'seek'):
+            pos = file.tell()
             file.seek(0, os.SEEK_END)
             size = file.tell()
-            file.seek(current_pos)  # Reset position
-
-        # If size still unknown (e.g., non-seekable stream), read initial chunk to check limit
-        if size == -1:
-            logging.warning(
-                "Cannot determine file size reliably (possibly non-seekable stream). Reading initial part to check size limit.")
-            # Read up to the limit + 1 byte to see if it exceeds
-            initial_chunk = file.read(AUDIO_SPLIT_BYTES + 1)
-            size = len(initial_chunk)
-            # This read consumes the beginning of a non-seekable stream, which is problematic for pydub later.
-            # We need a way to combine this initial chunk with the rest of the stream if chunking.
-            # For now, log an error if non-seekable and size requires chunking.
-            if not file.seekable() and size > AUDIO_SPLIT_BYTES:
-                logging.error(
-                    "Input stream is non-seekable and exceeds size limit. Chunking cannot proceed reliably after initial read.")
-                # Option: Fail fast
-                raise ValueError(
-                    "Cannot process large non-seekable stream reliably.")
-                # Option: Try to process anyway (will likely fail in pydub or give partial result) - Current path
-            elif file.seekable():
-                file.seek(0)  # Reset pointer if we read from a seekable file
-            # If non-seekable but *under* the limit, it's fine, small_file will read from current position.
-
+            file.seek(pos)
     except Exception as e:
         logging.error(
             f"Error getting file size: {e}. Attempting transcription assuming small file.")
@@ -437,9 +405,9 @@ def transcribe(file: BinaryIO,
                 f"Could not process audio file. Pydub error: {e}") from e
 
         processing_id = str(random.randint(0, 100000))
-        ten_minutes_ms = TEN_MINUTES  # 10 * 60 * 1000
+        ten_minutes_ms = TEN_MINUTES
 
-        def process_chunk(chunk_index, start_ms, end_ms):
+        async def process_chunk(chunk_index, start_ms, end_ms):
             chunk_num = chunk_index + 1
             logging.debug(
                 f"Processing chunk {chunk_num} ({start_ms / 1000.0:.2f}s to {end_ms / 1000.0:.2f}s) / Total Duration: {len(parts) / 1000.0:.2f}s")
@@ -457,7 +425,7 @@ def transcribe(file: BinaryIO,
                 # Re-open the exported file in binary read mode for the API call
                 with open(chunk_filename, "rb") as chunk_f_read:
                     # Pass the file object to small_file
-                    result = small_file(chunk_f_read, lang, response_format)
+                    result = await small_file(chunk_f_read, lang, response_format)
                 logging.debug(
                     f"Chunk {chunk_num} processed successfully by small_file.")
                 return result
@@ -531,7 +499,7 @@ def transcribe(file: BinaryIO,
             if file.seekable():
                 file.seek(0)  # Ensure reading from the start
 
-            single_result = small_file(file, lang, response_format)
+            single_result = await small_file(file, lang, response_format)
             docs = [single_result]
         except Exception as e:
             logging.error(
@@ -615,7 +583,7 @@ def transcribe(file: BinaryIO,
 
 
 @conditional_lru_cache
-def small_file(file: BinaryIO, lang: LANG_CODE = LANG_CODE.ENGLISH, response_format: WHISPER_RESPONSE_FORMAT = WHISPER_RESPONSE_FORMAT.TEXT):
+async def small_file(file: BinaryIO, lang: LANG_CODE = LANG_CODE.ENGLISH, response_format: WHISPER_RESPONSE_FORMAT = WHISPER_RESPONSE_FORMAT.TEXT):
     """
     :param response_format:
     :param file: binary file
@@ -628,7 +596,7 @@ def small_file(file: BinaryIO, lang: LANG_CODE = LANG_CODE.ENGLISH, response_for
         f"Transcribing audio file using openai api: '{file}', with lang: '{lang}', response_format: '{response_format}'")
 
     from app.settings import client_openai
-    transcription = client_openai.audio.transcriptions.create(
+    transcription = await client_openai.audio.transcriptions.create(
         model="whisper-1",
         file=file,
         language=lang.value,

@@ -1,3 +1,4 @@
+from app.schema.models import Base  # Import Base for table creation
 import os
 import sys
 import time
@@ -113,6 +114,11 @@ def postgres_container(override_settings):
         override_settings.database_url = db_url
         os.environ["POSTGRES_URL"] = db_url
 
+        # Create tables in the test database
+        engine = create_engine(db_url)
+        Base.metadata.create_all(bind=engine)
+        engine.dispose()  # Close the engine after creating tables
+
         # Monitor container logs during test execution
         def print_logs():
             while True:
@@ -127,7 +133,7 @@ def postgres_container(override_settings):
     except Exception as e:
         testcontainers_logger.error(f"Failed to start PostgreSQL container: {e}")
         print("\n=== Error Logs ===")
-        print(postgres_container.get_container().logs().decode())
+        print(postgres_container._container.logs().decode())
         raise
     finally:
         postgres_container.stop()
@@ -155,15 +161,12 @@ def db_session(engine):
 def override_db_session(monkeypatch, engine):
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-    def override_get_db():
-        db = TestingSessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
+    def override_get_session_maker():
+        return TestingSessionLocal
 
     from app import database
-    monkeypatch.setattr(database, "SessionLocal", TestingSessionLocal)
+    monkeypatch.setattr(database, "get_session_maker",
+                        override_get_session_maker)
 
 @pytest.fixture(scope="function")
 def test_db(postgres_container):

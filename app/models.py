@@ -35,8 +35,8 @@ class YTVideoTranscribe(BaseModel):
 
 class ApiProcessingResult(BaseModel):
     result: bool = Field(title="Success or error")
-    error: Optional[str] = Field(title="Error description")
-    text: Optional[str] = Field(title="Video transcription")
+    error: Optional[str] = Field(title="Error description", default=None)
+    text: Optional[str] = Field(title="Transcription", default=None)
 
 
 class YtVideoInfoRequest(BaseModel):

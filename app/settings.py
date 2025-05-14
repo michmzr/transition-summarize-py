@@ -3,7 +3,7 @@ import os
 from functools import lru_cache
 
 from langsmith.wrappers import wrap_openai
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -138,7 +138,7 @@ def get_settings():
 # AI Clients - with safer initialization
 def get_openai_client():
     settings = get_settings()
-    return wrap_openai(OpenAI(api_key=settings.openai_api_key))
+    return wrap_openai(AsyncOpenAI(api_key=settings.openai_api_key))
 
 
 # Initialize the OpenAI client lazily

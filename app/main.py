@@ -120,7 +120,7 @@ logger.setLevel(get_settings().logging_level)
 
 # Create formatters and handlers with simplified format
 formatter = logging.Formatter(
-    "[%(asctime)s UTC] [%(levelname)s] [%(request_id)s] %(message)s"
+    "[%(asctime)s UTC] [%(levelname)s] [%(request_id)s] [%(filename)s] %(message)s"
 )
 
 file_handler = logging.FileHandler("debug.log")

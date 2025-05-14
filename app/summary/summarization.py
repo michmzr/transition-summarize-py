@@ -48,7 +48,7 @@ def get_template(type):
 )
 async def summarize(text: str, type: SUMMARIZATION_TYPE, lang: LANG_CODE) -> str:
     """
-    Summarize text using OpenAI's GPT model.
+    Summarize text.
 
     Args:
         text (str): The text to summarize.
@@ -60,12 +60,15 @@ async def summarize(text: str, type: SUMMARIZATION_TYPE, lang: LANG_CODE) -> str
     """
     logging.info(f"Summarizing text with type: {type.name}, lang: {lang}")
 
+    if text == "":
+        return ""
+
     from app.settings import client_openai
     response = await client_openai.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": f"You are a helpful assistant that summarizes text in {lang.value} language."},
-            {"role": "user", "content": f"Please provide a {type.value} summary of the following text:\n\n{text}"}
+            {"role": "system", "content": get_template(type)},
+            {"role": "user", "content": f"\n\n{text}"}
         ]
     )
 

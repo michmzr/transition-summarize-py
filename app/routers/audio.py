@@ -93,7 +93,8 @@ async def audio_trans(
             type=ProcessArtifactType.TRANSCRIPTION
         ))
 
-        logging.info("Completed processing audio file. Returning transcription.")
+        logging.info(
+            f"Completed processing audio file. Returning transcription with length: {len(transcription)}")
 
         accept_header = request.headers.get("Accept", "application/json")
         logging.info(f"Accept header: {accept_header}")
@@ -224,14 +225,23 @@ async def audio_summarize(
 async def transcribe_uploaded_file(uploaded_file: UploadFile,
                              lang: LANG_CODE,
                              response_format: WHISPER_RESPONSE_FORMAT):
+    logging.info(f"Transcribing uploaded file: {uploaded_file.filename}")
     try:
         suffix = os.path.splitext(uploaded_file.filename)[1]
+
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp:
             while contents := await uploaded_file.read(1024 * 1024):
                 temp.write(contents)
             temp.seek(0)
+            file_size = os.path.getsize(temp.name)
             with open(temp.name, 'rb') as binary_file:
+                sample = binary_file.read(32)
+                logging.info(
+                    f"Temp file size: {file_size}, first 32 bytes: {sample}")
+                binary_file.seek(0)
                 transcription = await transcribe(binary_file, lang, response_format)
+                logging.info(
+                    f"Transcription generated with  length: {len(transcription)} and format: {response_format}")
                 return transcription
     except Exception as e:
         logging.error(f"Error transcribing file: {str(e)}")

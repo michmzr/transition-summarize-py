@@ -18,6 +18,7 @@ from app.transcribe.transcription import yt_transcribe, WHISPER_RESPONSE_FORMAT
 from app.utils.files import string_to_filename
 from app.youtube.metadata import get_youtube_metadata
 from app.youtube.transcriptions import download_transcription
+
 yt_router = APIRouter(
     prefix="/youtube",
     tags=["youtube", "transcription", "summarization"],
@@ -53,7 +54,7 @@ def yt_transcription(
         logging.info(f"yt transcribe - request details: {yt_request}")
 
         details = get_youtube_metadata(yt_request.url)
-        logging.info(f"YT details: {details}")
+        logging.debug(f"YT details: {details}")
 
         process_id = register_new_process(
             current_user,
@@ -130,7 +131,7 @@ def save_dir_path(url):
 
 
 @yt_router.post("/summarize", response_model=ApiProcessingResult)
-def yt_summarize(
+async def yt_summarize(
         request: Request,
         yt_request: YtVideoSummarize,
         response: Response,
@@ -187,7 +188,7 @@ def yt_summarize(
             transcription,
             ProcessArtifactFormat.TEXT, yt_request.lang)
 
-        summarization = summarize(
+        summarization = await summarize(
             transcription, yt_request.type, yt_request.lang)
         register_process_artifact(
             current_user, process_id,

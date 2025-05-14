@@ -260,3 +260,9 @@ cython_debug/
 scripts/data/chunks
 scripts/data/chunks/**
 scripts/data/chunks/*
+
+pytest_cache
+pytest_cache/*
+pytest-results.xml
+
+.idea

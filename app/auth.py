@@ -61,7 +61,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     user = get_user(db, username=token_data.username)
     if user is None:
         raise credentials_exception
-    return User.from_orm(user)
+    return User.model_validate(user, from_attributes=True)
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)):
     if not current_user.is_active:

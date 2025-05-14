@@ -94,7 +94,7 @@ async def test_audio_transcribe_valid_file(audio_file, auth_headers):
         assert response.status_code == 200
         assert json["result"]
         assert "text" in json
-        assert "format" in json
+        assert "Liduch" in json["text"]
 
 
 @pytest.mark.asyncio

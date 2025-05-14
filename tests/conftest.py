@@ -84,16 +84,6 @@ def postgres_container(override_settings):
     postgres_container.with_env("POSTGRES_INITDB_ARGS", "--auth=trust")
     postgres_container.start_timeout = 60
 
-    # Configure health check
-    postgres_container.with_command([
-        "postgres",
-        "-c", "max_connections=100",
-        "-c", "shared_buffers=256MB",
-        "-c", "fsync=off",
-        "-c", "synchronous_commit=off",
-        "-c", "full_page_writes=off"
-    ])
-
     # Use random available port
     postgres_container.with_bind_ports(5432, 0)
 

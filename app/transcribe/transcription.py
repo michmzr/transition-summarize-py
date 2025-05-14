@@ -10,6 +10,7 @@ from enum import Enum
 from typing import BinaryIO
 from typing import cast, Literal, Union, List
 import langsmith as ls
+import asyncio
 
 from langchain_community.document_loaders.generic import GenericLoader
 from pydub import AudioSegment
@@ -254,11 +255,14 @@ def yt_transcribe(url: str,
     proxy_servers = settings.proxy_servers.split(
         ",") if settings.proxy_servers and settings.use_proxy else None
 
-    logging.debug(
-        f"Proxy servers: {proxy_servers} - using proxy: {settings.use_proxy}")
+    if settings.proxy_servers and settings.use_proxy:
+        logging.debug(
+            f"Proxy servers: {proxy_servers} - using proxy: {settings.use_proxy}")
 
     # TODO check if file was already downloaded
     # TODO check if transcription was already done - DB
+    #loader = YoutubeAudioLoader([url], save_dir, proxy_servers).yield_blobs()
+
     loader = GenericLoader(YoutubeAudioLoader([url], save_dir, proxy_servers),
                            OpenAIWhisperParser(api_key=settings.openai_api_key,
                                                language=lang.value,
@@ -279,9 +283,9 @@ def yt_transcribe(url: str,
     metadata={"flow": "transcription"}
 )
 async def transcribe(file: BinaryIO,
-               lang: LANG_CODE = LANG_CODE.ENGLISH,
-               response_format: WHISPER_RESPONSE_FORMAT = WHISPER_RESPONSE_FORMAT.TEXT
-               ) -> Union[str, List[object]]:
+                     lang: LANG_CODE = LANG_CODE.ENGLISH,
+                     response_format: WHISPER_RESPONSE_FORMAT = WHISPER_RESPONSE_FORMAT.TEXT
+                     ) -> Union[str, List[object]]:
     """
     Transcribe audio file to text
 
@@ -412,19 +416,15 @@ async def transcribe(file: BinaryIO,
             logging.debug(
                 f"Processing chunk {chunk_num} ({start_ms / 1000.0:.2f}s to {end_ms / 1000.0:.2f}s) / Total Duration: {len(parts) / 1000.0:.2f}s")
             chunk_audio = parts[start_ms:end_ms]
-            # Use a robust format like wav or flac for intermediate chunks if mp3 causes issues? Stick to mp3 for now.
             chunk_filename = f"{downloads_path()}/{processing_id}_chunk{chunk_num}.mp3"
 
             try:
-                # Export the chunk to a temporary file for Whisper API
                 with open(chunk_filename, "wb") as chunk_f:
                     chunk_audio.export(chunk_f, format="mp3")
                 logging.debug(
                     f"Exported chunk {chunk_num} to {chunk_filename}")
 
-                # Re-open the exported file in binary read mode for the API call
                 with open(chunk_filename, "rb") as chunk_f_read:
-                    # Pass the file object to small_file
                     result = await small_file(chunk_f_read, lang, response_format)
                 logging.debug(
                     f"Chunk {chunk_num} processed successfully by small_file.")
@@ -432,9 +432,8 @@ async def transcribe(file: BinaryIO,
             except Exception as exc:
                 logging.error(
                     f"Chunk {chunk_num} ({start_ms}ms to {end_ms}ms) generated an exception during processing or API call: {exc}", exc_info=True)
-                return None  # Indicate failure for this chunk
+                return None
             finally:
-                # Ensure temporary chunk file is deleted
                 if os.path.exists(chunk_filename):
                     try:
                         os.remove(chunk_filename)
@@ -443,43 +442,16 @@ async def transcribe(file: BinaryIO,
                         logging.warning(
                             f"Failed to remove chunk file {chunk_filename}: {ose}")
 
-        with ThreadPoolExecutor() as executor:
-            # Create futures with start/end times
-            futures = {}
-            for i, start_ms in enumerate(range(0, len(parts), ten_minutes_ms)):
-                end_ms = min(start_ms + ten_minutes_ms, len(parts))
-                if start_ms >= end_ms:
-                    continue  # Skip zero-duration chunks if any
-                future = executor.submit(process_chunk, i, start_ms, end_ms)
-                futures[future] = i  # Map future back to original index
+        # Create tasks for each chunk
+        tasks = []
+        for i, start_ms in enumerate(range(0, len(parts), ten_minutes_ms)):
+            end_ms = min(start_ms + ten_minutes_ms, len(parts))
+            if start_ms >= end_ms:
+                continue
+            tasks.append(process_chunk(i, start_ms, end_ms))
 
-            # Prepare ordered results list
-            num_chunks = math.ceil(len(parts) / ten_minutes_ms)
-            # Handle case where audio length is zero or very small resulting in zero chunks
-            if num_chunks == 0 and len(parts) > 0:
-                num_chunks = 1
-            elif num_chunks == 0:
-                # continue with empty list
-                logging.warning("Audio appears to have zero length.")
-            ordered_results = [None] * num_chunks
-
-            for future in as_completed(futures):
-                index = futures[future]
-                try:
-                    result = future.result()
-                    if index < len(ordered_results):
-                        ordered_results[index] = result
-                    else:
-                        logging.error(
-                            f"Index {index} out of bounds for ordered_results (size {len(ordered_results)}) for future {future}")
-                except Exception as exc:
-                    # Exception raised *by the task* (process_chunk) is caught by future.result()
-                    # process_chunk should return None on error, so this path handles unexpected exceptions maybe?
-                    logging.error(
-                        f"Exception retrieving result for chunk index {index}: {exc}", exc_info=True)
-                    # Result for this chunk remains None in ordered_results
-
-            docs = ordered_results
+        # Run all tasks concurrently
+        docs = await asyncio.gather(*tasks)
 
         # Clean up the main temporary audio file if created
         if temp_audio_path_to_clean and os.path.exists(temp_audio_path_to_clean):

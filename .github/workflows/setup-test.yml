@@ -31,6 +31,9 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v3
 
+      - name: Pull PostgreSQL Docker image
+        run: docker pull postgres:15-alpine
+
       - name: Install pipenv
         run: |
           python -m pip install --upgrade pip
@@ -66,6 +69,7 @@ jobs:
 
           # Test environment indicator
           TESTING: true
+          GITHUB_ACTIONS: true
 
           # Let testcontainers handle all database configuration
           POSTGRES_HOST: ""  # Will be set by testcontainers
@@ -81,7 +85,11 @@ jobs:
         run: |
           echo "Installing dependencies..."
           pipenv --python ${{ env.pythonLocation }}/bin/python install
-          pipenv install pytest-asyncio pytest-cov pytest-html pytest-sugar
+          pipenv install pytest-asyncio pytest-cov pytest-html pytest-sugar docker
+
+          echo "Docker info and status:"
+          docker info
+          docker ps
 
           echo "Running tests..."
           PYTHONPATH=$PWD pipenv run pytest \

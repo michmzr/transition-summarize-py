@@ -90,6 +90,7 @@ yt-dlp = "*"
 apscheduler = "*"
 langchain-anthropic = "*"
 itsdangerous = "*"
+docker = "*"
 
 [dev-packages]
 pytest = "*"
@@ -98,6 +99,7 @@ pytest-cov = "*"
 alembic = "*"
 sqlalchemy = "*"
 psycopg2-binary = "*"
+docker = "*"
 
 [requires]
 python_version = "3"

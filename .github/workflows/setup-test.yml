@@ -18,7 +18,7 @@ permissions:
 jobs:
   setup_and_test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
 
@@ -73,6 +73,11 @@ jobs:
           POSTGRES_USER: ""  # Will be set by testcontainers
           POSTGRES_PASSWORD: ""  # Will be set by testcontainers
           POSTGRES_DB: ""  # Will be set by testcontainers
+
+          # Testcontainers configuration
+          TESTCONTAINERS_DOCKER_CLIENT_STRATEGY: org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
+          TESTCONTAINERS_RYUK_DISABLED: true
+          TESTCONTAINERS_CHECKS_DISABLE: true
         run: |
           echo "Installing dependencies..."
           pipenv --python ${{ env.pythonLocation }}/bin/python install
@@ -91,10 +96,10 @@ jobs:
           echo "Test files generated:"
           ls -la pytest-results.xml || echo "pytest-results.xml not found"
           ls -la coverage.xml || echo "coverage.xml not found"
-          
+
           echo "Content of pytest-results.xml:"
           cat pytest-results.xml || echo "Cannot read pytest-results.xml"
-          
+
           echo "Content of coverage.xml:"
           cat coverage.xml || echo "Cannot read coverage.xml"
 
@@ -103,7 +108,7 @@ jobs:
         id: test-results
         run: |
           echo "Starting test results processing..."
-          
+
           # Initialize default values
           echo "tests=0" >> $GITHUB_OUTPUT
           echo "failures=0" >> $GITHUB_OUTPUT
@@ -166,10 +171,10 @@ jobs:
           issue-number: ${{ steps.pr.outputs.number }}
           body: |
             ### Test Results Summary 📊
-            
+
             #### Coverage Report
             - Total Coverage: ${{ steps.test-results.outputs.coverage }}%
-            
+
             #### Test Statistics
             - Total Tests: ${{ steps.test-results.outputs.tests }}
             - ✅ Passed: ${{ steps.test-results.outputs.passed }}
@@ -177,7 +182,7 @@ jobs:
             - 🔴 Errors: ${{ steps.test-results.outputs.errors }}
             - ⏭️ Skipped: ${{ steps.test-results.outputs.skipped }}
             - ⏱️ Duration: ${{ steps.test-results.outputs.time }}s
-            
+
             > Results from test run at ${{ github.event.head_commit.timestamp }}
           edit-mode: replace
 

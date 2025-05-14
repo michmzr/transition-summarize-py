@@ -3,6 +3,9 @@ import os
 import sys
 import time
 import logging
+import socket
+import subprocess
+from typing import Callable
 
 import pytest
 from sqlalchemy import text
@@ -23,6 +26,30 @@ from app.settings import get_settings
 logging.basicConfig(level=logging.INFO)
 testcontainers_logger = logging.getLogger("testcontainers")
 testcontainers_logger.setLevel(logging.DEBUG)
+
+
+def wait_for_ready(check_func: Callable[[], bool], timeout: int = 180, interval: int = 2):
+    """Wait for a condition to be true with exponential backoff"""
+    start_time = time.time()
+    current_interval = interval
+    max_interval = 10  # Maximum wait between attempts
+
+    while time.time() - start_time < timeout:
+        try:
+            if check_func():
+                return True
+        except Exception as e:
+            testcontainers_logger.warning(f"Failed readiness check: {e}")
+
+        # Log waiting message every few seconds
+        testcontainers_logger.info(
+            f"Waiting for readiness check (elapsed: {int(time.time() - start_time)}s)...")
+        time.sleep(current_interval)
+
+        # Exponential backoff with a maximum
+        current_interval = min(current_interval * 1.5, max_interval)
+
+    return False
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db(postgres_container):
@@ -82,7 +109,9 @@ def postgres_container(override_settings):
     # Configure container startup
     postgres_container.with_env("PGDATA", "/var/lib/postgresql/data")
     postgres_container.with_env("POSTGRES_INITDB_ARGS", "--auth=trust")
-    postgres_container.start_timeout = 60
+
+    # Increase startup timeout (default seems to be too short)
+    postgres_container.start_timeout = 300  # 5 minutes
 
     # Use random available port
     postgres_container.with_bind_ports(5432, 0)
@@ -99,6 +128,30 @@ def postgres_container(override_settings):
         # Get the actual port and create database URL
         actual_port = postgres_container.get_exposed_port(5432)
         db_url = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:{actual_port}/{POSTGRES_DB}"
+
+        # Wait for PostgreSQL to be ready
+        def check_postgres_ready():
+            # Try connecting directly to the database
+            try:
+                # Create a test connection to verify DB is ready
+                test_engine = create_engine(db_url)
+                with test_engine.connect() as connection:
+                    result = connection.execute(text("SELECT 1"))
+                    return result.scalar() == 1
+            except Exception as e:
+                testcontainers_logger.warning(f"Database not ready yet: {e}")
+                return False
+
+        testcontainers_logger.info("Waiting for PostgreSQL to be ready...")
+        if not wait_for_ready(check_postgres_ready, timeout=240):
+            # If we reach here, the wait timed out
+            logs = postgres_container._container.logs().decode()
+            testcontainers_logger.error(
+                f"PostgreSQL container failed to become ready. Logs:\n{logs}")
+            raise TimeoutError(
+                "PostgreSQL container failed to become ready in the allocated time")
+
+        testcontainers_logger.info("PostgreSQL is ready!")
 
         # Update settings
         override_settings.database_url = db_url

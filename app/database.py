@@ -3,6 +3,8 @@ from sqlalchemy.orm import sessionmaker
 from app.schema.models import Base
 from app.settings import get_settings
 import logging
+import time
+from sqlalchemy.exc import OperationalError
 
 _engine = None
 _SessionLocal = None
@@ -14,7 +16,33 @@ def get_engine():
         settings = get_settings()
         db_url = settings.get_database_url()
         if db_url:
-            _engine = create_engine(db_url)
+            # Add retry logic for connection
+            retry_count = 0
+            max_retries = 3
+            retry_delay = 2  # seconds
+
+            while retry_count < max_retries:
+                try:
+                    _engine = create_engine(
+                        db_url,
+                        pool_pre_ping=True,  # Verify connections before using them
+                        pool_recycle=300,    # Recycle connections every 5 minutes
+                        # Increase connection timeout
+                        connect_args={"connect_timeout": 30}
+                    )
+                    # Test connection
+                    _engine.connect().close()
+                    break
+                except OperationalError as e:
+                    retry_count += 1
+                    if retry_count >= max_retries:
+                        logging.error(
+                            f"Failed to connect to database after {max_retries} attempts: {e}")
+                        raise
+                    logging.warning(
+                        f"Database connection failed (attempt {retry_count}/{max_retries}), retrying in {retry_delay}s: {e}")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
         else:
             # Handle case where URL is not available (e.g., misconfiguration)
             # Log an error or raise an exception as appropriate

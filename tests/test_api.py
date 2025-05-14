@@ -141,8 +141,8 @@ async def test_given_url_expect_non_empty_transcription(auth_token):
         )
 
         assert response.status_code == 200
-        assert "transcription" in response.json()
-        result = response.json()["transcription"]
+        assert "text" in response.json()
+        result = response.json()["text"]
         assert "liberal" in result
         assert "chains" in result
 
@@ -158,6 +158,41 @@ async def test_given_url_expect_non_empty_summary(auth_token):
         assert response.status_code == 200
         assert "summary" in response.json()
         assert response.json()["summary"] != ""
+
+
+@pytest.mark.asyncio
+async def test_summarize_plain_text(auth_token):
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
+        response = await ac.post(
+            "/api/youtube/summarize",
+            json={"url": SHORT_YT_VIDEO, "type": "tldr", "lang": "pl"},
+            headers={
+                "Authorization": f"Bearer {auth_token}",
+                "Accept": "text/plain"
+            }
+        )
+
+        assert response.status_code == 200
+        assert response.text != ""
+
+
+@pytest.mark.asyncio
+async def test_summarize_file_download(auth_token):
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
+        response = await ac.post(
+            "/api/youtube/summarize",
+            json={"url": SHORT_YT_VIDEO, "type": "tldr", "lang": "pl"},
+            headers={
+                "Authorization": f"Bearer {auth_token}",
+                "Accept": "text/srt"
+            }
+        )
+
+        assert response.status_code == 200
+        assert "text/srt" in response.headers["content-type"]
+        assert response.headers["content-disposition"] == 'attachment; filename="Nie_ma_roz.srt"'
+        assert int(response.headers["content-length"]) > 0
+
 
 def teardown_module(module):
     """

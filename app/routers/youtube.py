@@ -130,7 +130,7 @@ def save_dir_path(url):
     return save_dir
 
 
-@yt_router.post("/summarize", response_model=ApiProcessingResult)
+@yt_router.post("/summarize")
 async def yt_summarize(
         request: Request,
         yt_request: YtVideoSummarize,
@@ -158,12 +158,15 @@ async def yt_summarize(
     try:
         logging.info(f"yt summarize - Request details: {yt_request:}")
 
+        details = get_youtube_metadata(yt_request.url)
+
         process_id = register_new_process(
             current_user,
             RequestType.YOUTUBE,
             request=request,
             request_data={
-                "yt_request": yt_request.model_dump()}
+                "yt_request": yt_request.model_dump(),
+                "yt_details": {"name": details.title, "channel": details.channel_url, "description": details.description}}
         )
 
         save_dir = save_dir_path(yt_request.url)
@@ -207,8 +210,16 @@ async def yt_summarize(
         if accept_header == "text/plain":
             return PlainTextResponse(summarization)
         elif accept_header == "text/srt":
-            # return as a file
-            return FileResponse(transcription, media_type="text/srt")
+            # return as a file - encode name to be safe as filename
+            video_name = details.title.replace(" ", "_")[:10]
+            file_name = string_to_filename(video_name) + ".srt"
+            logging.info(f"File name: {file_name}")
+
+            # Save transcription as a temporary file
+            with tempfile.NamedTemporaryFile(suffix="srt", delete=False) as temp:
+                temp.write(transcription.encode('utf-8'))
+                temp.flush()
+                return FileResponse(temp.name, media_type="text/srt", filename=file_name)
         else:
             return SummaryResult(summary=summarization)
     except Exception as e:

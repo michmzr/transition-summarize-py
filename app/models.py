@@ -16,9 +16,11 @@ class SUMMARIZATION_TYPE(str, Enum):
 class YTVideoTranscribe(BaseModel):
     url: str
     lang: LANG_CODE = Field(default=LANG_CODE.POLISH,
-                            title="Video language as ISO-639-1 code like PL, EN", ),
+                            title="Video language as ISO-639-1 code like PL, EN"),
     response_format: WHISPER_RESPONSE_FORMAT = Field(
         default=WHISPER_RESPONSE_FORMAT.SRT, title="Response format")
+    use_yt_transcription: bool = Field(
+        default=True, title="Use YT transcription or generate new one. If YT transcription is nto found then transcription will be generated")
 
     model_config = {
         "json_schema_extra": {
@@ -26,7 +28,8 @@ class YTVideoTranscribe(BaseModel):
                 {
                     "url": "https://www.youtube.com/shorts/tvPMT89eJWo",
                     "lang": "pl",
-                    "response_format": "srt"
+                    "response_format": "srt",
+                    "use_yt_transcription": True
                 }
             ]
         }
@@ -34,9 +37,9 @@ class YTVideoTranscribe(BaseModel):
 
 
 class ApiProcessingResult(BaseModel):
-    result: bool = Field(title="Success or error")
-    error: Optional[str] = Field(title="Error description", default=None)
-    text: Optional[str] = Field(title="Transcription", default=None)
+    result: Optional[str | dict | list] = Field(
+        None, title="Result of endpoint operation")
+    error: Optional[str] = Field(None, title="Error description")
 
 
 class YtVideoInfoRequest(BaseModel):
@@ -72,6 +75,8 @@ class YtVideoSummarize(BaseModel):
                             title="Language code of transcription and final summarization text")
     use_yt_transcription: bool = Field(
         default=True, title="Use YT transcription or generate new one. If YT transcription is nto found then transcription will be generated")
+    response_format: WHISPER_RESPONSE_FORMAT = Field(
+        default=WHISPER_RESPONSE_FORMAT.SRT, title="Response format")
 
     model_config = {
         "json_schema_extra": {
@@ -80,7 +85,8 @@ class YtVideoSummarize(BaseModel):
                     "url": "https://www.youtube.com/shorts/tvPMT89eJWo",
                     "type": "detailed",
                     "lang": "pl",
-                    "use_yt_transcription": True
+                    "use_yt_transcription": True,
+                    "response_format": "srt"
                 }
             ]
         }

@@ -56,9 +56,11 @@ class YoutubeAudioLoader(BlobLoader):
             return any(keyword in str(exception).lower() for keyword in keywords)
 
         while trial < max_trials:
-            logging.debug(f"Download video {self.urls}, trial {trial}/{max_trials}")
+            logging.debug(f"Download {self.urls}, trial {trial}/{max_trials}")
+
             if (self.proxy_servers):
                 ydl_opts["proxy"] = self.random_proxy()
+                logging.debug(f"Using proxy: {ydl_opts['proxy']}")
 
             retcode = None
             try:
@@ -68,7 +70,7 @@ class YoutubeAudioLoader(BlobLoader):
                 break
             except Exception as e:
                 logging.warning(
-                    f"Got exception: {e} code={retcode}, trying to download again (trial: {trial}/{max_trials})")
+                    f"Got exception: {e} code={retcode}, trying to download again (trial: {trial}/{max_trials})", e)
 
                 # Retry if exception message contains sign in error message
                 keywords = ["sign in", "login", "login_required", "bot", "429"]

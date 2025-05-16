@@ -92,9 +92,8 @@ async def test_audio_transcribe_valid_file(audio_file, auth_headers):
 
         json = response.json()
         assert response.status_code == 200
-        assert json["result"]
-        assert "text" in json
-        assert "Liduch" in json["text"]
+        assert "result" in json
+        assert "Liduch" in json["result"]
 
 
 @pytest.mark.asyncio
@@ -112,7 +111,6 @@ async def test_audio_transcribe_invalid_file(auth_headers):
         json = response.json()
         assert response.status_code == 400
         assert "error" in json
-        assert json["result"] == False
         assert "Invalid file type. Only audio files are accepted" in json["error"]
 
 @pytest.mark.asyncio
@@ -141,8 +139,8 @@ async def test_given_url_expect_non_empty_transcription(auth_token):
         )
 
         assert response.status_code == 200
-        assert "text" in response.json()
-        result = response.json()["text"]
+        assert "result" in response.json()
+        result = response.json()["result"]
         assert "liberal" in result
         assert "chains" in result
 
@@ -184,13 +182,13 @@ async def test_summarize_file_download(auth_token):
             json={"url": SHORT_YT_VIDEO, "type": "tldr", "lang": "pl"},
             headers={
                 "Authorization": f"Bearer {auth_token}",
-                "Accept": "text/srt"
+                "Accept": "text/markdown"
             }
         )
 
         assert response.status_code == 200
-        assert "text/srt" in response.headers["content-type"]
-        assert response.headers["content-disposition"] == 'attachment; filename="Nie_ma_roz.srt"'
+        assert "text/markdown" in response.headers["content-type"]
+        assert response.headers["content-disposition"] == 'attachment; filename="Nie_ma_roz.md"'
         assert int(response.headers["content-length"]) > 0
 
 

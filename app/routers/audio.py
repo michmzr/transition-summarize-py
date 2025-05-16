@@ -61,15 +61,14 @@ async def audio_trans(
         if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video"):
             response.status_code = status.HTTP_400_BAD_REQUEST
             return ApiProcessingResult(
-                result=False,
-                error="Invalid file type. Only audio files are accepted",
+                error="Invalid file type. Only audio files are accepted"
             )
 
         if not uploaded_file.filename.endswith(VALID_AUDIO_EXTENSIONS):
             response.status_code = status.HTTP_400_BAD_REQUEST
-            return ApiProcessingResult(result=False,
-                                    error=f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted",
-                                    )
+            return ApiProcessingResult(
+                error=f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted"
+            )
 
         process_id = register_new_process(
             current_user,
@@ -114,7 +113,7 @@ async def audio_trans(
                 temp.flush()
                 return FileResponse(temp.name, media_type="text/"+ext, filename=file_name)
         else:
-            return ApiProcessingResult(result=True, text=transcription)
+            return ApiProcessingResult(result=transcription)
     except Exception as e:
         logging.error(f"Error in audio transcribe endpoint: {str(e)}", exc_info=True)
 
@@ -123,9 +122,7 @@ async def audio_trans(
 
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return ApiProcessingResult(
-            result=False,
             error="Error in audio transcribtion ",
-            text="An error occurred while processing the audio file",
         )
 
 @a_router.post("/summary", response_model=SummaryResult)
@@ -160,72 +157,68 @@ async def audio_summarize(
     try:
         logging.info(f"audio summarizing api - {uploaded_file}, type: {type.name}")
 
-        try:
-            # check if file is audio
-            if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video"):
-                update_process_status(process_id, "failed", "Invalid file type")
-                response.status_code = status.HTTP_400_BAD_REQUEST
-                return {"error": "Invalid file type. Only audio files are accepted"}
+        # Register new audio processing job first to get process_id
+        process_id = register_new_process(
+            current_user,
+            RequestType.AUDIO,
+            request=request,
+            request_data={
+                "file_name": uploaded_file.filename,
+                "file_type": uploaded_file.content_type,
+                "lang": lang,
+                "format": type.name}
+        )
 
-            if not uploaded_file.filename.endswith(VALID_AUDIO_EXTENSIONS):
-                update_process_status(process_id, "failed", f"Invalid file extension")
-                response.status_code = status.HTTP_400_BAD_REQUEST
-                return {"error": f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted"}
+        # Then check if file is audio
+        if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video") and not uploaded_file.filename.endswith(VALID_AUDIO_EXTENSIONS):
+            update_process_status(process_id, CompletedProcess(
+                user_id=current_user.id,
+                status=RequestStatus.FAILED,
+                error=f"Invalid file type '{uploaded_file.content_type}'. Only audio files are accepted",
+                type=ProcessArtifactType.SUMMARY,
+                result="",
+                result_format=ProcessArtifactFormat.TEXT,
+                lang=lang
+            ))
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return SummaryResult(summary=None)
 
-            # Register new audio processing job
-            process_id = register_new_process(
-                current_user,
-                RequestType.AUDIO,
-                request=request,
-                request_data={
-                    "file_name": uploaded_file.filename,
-                    "file_type": uploaded_file.content_type,
-                    "lang": lang,
-                    "format": type.name}
-            )
+        # Update status before transcription
+        transcription = await transcribe_uploaded_file(uploaded_file, lang, WHISPER_RESPONSE_FORMAT.SRT)
+        register_process_artifact(
+            current_user, process_id, ProcessArtifactType.TRANSCRIPTION, transcription, ProcessArtifactFormat.TEXT, lang)
 
-            # Update status before transcription
-            transcription = await transcribe_uploaded_file(uploaded_file, lang, WHISPER_RESPONSE_FORMAT.SRT)
-            register_process_artifact(
-                current_user, process_id, ProcessArtifactType.TRANSCRIPTION, transcription, ProcessArtifactFormat.TEXT, lang)
+        # Update status before summarization
+        summary = await summarize(transcription, type, lang)
+        register_process_artifact(
+            current_user, process_id, ProcessArtifactType.SUMMARY, summary, ProcessArtifactFormat.TEXT, lang)
 
-            # Update status before summarization
-            summary = await summarize(transcription, type, lang)
-            register_process_artifact(
-                current_user, process_id, ProcessArtifactType.SUMMARY, summary, ProcessArtifactFormat.TEXT, lang)
+        # Mark process as completed
+        complete_process(process_id)
 
-            # Mark process as completed
-            complete_process(process_id)
+        logging.info("Completed processing audio file. Returning summary.")
 
-            logging.info("Completed processing audio file. Returning summary.")
+        accept_header = request.headers.get("Accept", "application/json")
+        # If the Accept header is "text/plain", return plain text
+        if accept_header == "text/plain":
+            return PlainTextResponse(summary)
+        else:
+            return SummaryResult(summary=summary)
 
-            accept_header = request.headers.get("Accept", "application/json")
-            # If the Accept header is "text/plain", return plain text
-            if accept_header == "text/plain":
-                return PlainTextResponse(summary)
-            else:
-                return SummaryResult(summary=summary)
-        except Exception as e:
-            # Update process status on error
-            update_process_status(process_id, "failed", str(e))
-            raise
     except Exception as e:
         logging.error(f"Error in audio summarize endpoint: {str(e)}", exc_info=True)
         if process_id:
             process_failed(process_id, str(e))
 
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-        return SummaryResult(
-            result=False,
-            error="An error occurred while processing the audio file",
-            summary=None
-        )
+        return SummaryResult(summary=None)
 
 
 async def transcribe_uploaded_file(uploaded_file: UploadFile,
-                             lang: LANG_CODE,
-                             response_format: WHISPER_RESPONSE_FORMAT):
-    logging.info(f"Transcribing uploaded file: {uploaded_file.filename}")
+                                   lang: LANG_CODE,
+                                   response_format: WHISPER_RESPONSE_FORMAT):
+    logging.info(
+        f"Transcribing uploaded file: {uploaded_file.filename}, lang: {lang}, response_format: {response_format}")
     try:
         suffix = os.path.splitext(uploaded_file.filename)[1]
 
@@ -249,45 +242,3 @@ async def transcribe_uploaded_file(uploaded_file: UploadFile,
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while transcribing the audio file"
         )
-
-def list_files_with_file_extension(directory, file_extension):
-    try:
-        files = [f for f in os.listdir(directory) if f.endswith(file_extension)]
-        logging.debug(f"Found {len(files)} files with extension {file_extension}")
-        return files
-    except Exception as e:
-        logging.error(f"Error listing files in directory {directory}: {str(e)}")
-        raise
-
-def transcribe_file(save_path: str, file: str):
-    try:
-        logging.info(f"Starting transcription for file '{file}'")
-
-        logging.debug(f"Reading audio file '{file}'...")
-        with open(file, 'rb') as audio_file:
-            try:
-                transcription = transcribe(audio_file, LANG_CODE.POLISH, WHISPER_RESPONSE_FORMAT.SRT)
-            except Exception as e:
-                logging.error(f"Transcription failed for {file}: {str(e)}")
-                raise
-
-        output = os.path.splitext(os.path.basename(file))[0] + ".txt"
-        logging.info(f"Saving transcription to {output}")
-        file_name = os.path.join(save_path, output)
-
-        try:
-            with open(file_name, "x") as f:
-                f.write(transcription)
-        except FileExistsError:
-            logging.warning(f"File {file_name} already exists, skipping save")
-            raise
-        except Exception as e:
-            logging.error(f"Error saving transcription to {file_name}: {str(e)}")
-            raise
-
-        logging.info(f"Successfully transcribed and saved {file}")
-        return True
-
-    except Exception as e:
-        logging.error(f"Failed to process {file}: {str(e)}")
-        raise

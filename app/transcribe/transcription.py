@@ -1,6 +1,7 @@
 import io
 import logging
 import os
+from pathlib import PosixPath
 import random
 import re
 import math
@@ -228,58 +229,50 @@ def _combine_subtitle_chunks(results: list[Union[str, None]],
         return "WEBVTT\n\n" if format_type == 'vtt' else ""  # Return empty valid file
 
 
-@ls.traceable(
-    run_type="llm",
-    name="Transcription",
-    tags=["yt", "transcription"],
-    metadata={"flow": "transcription"}
-)
-@conditional_lru_cache
-def yt_transcribe(url: str,
-                  save_dir: str,
-                  lang: LANG_CODE,
-                  response_format: WHISPER_RESPONSE_FORMAT):
+def download_and_extract_audio_from_link(url: str, save_dir: str) -> PosixPath | None:
     """
-    Transcribe the videos to text
+    Download audio from a video link supported by yt_dlp library
 
-    inspiration: https://python.langchain.com/docs/integrations/document_loaders/youtube_audio/
-    :param lang:
-    :param response_format:
-    :param url: yt video url
-    :param save_dir:
+    Args:
+        url: YouTube video URL
+        save_dir: Directory to save the audio file
+        proxy_servers: Optional list of proxy servers
+
+    Returns:
+        Path to the downloaded audio file or None if download fails
     """
     logging.info(
-        f"Processing url: {url}, save_dir: {save_dir}, lang: {lang}, response_format: {response_format}")
+        f"Downloading audio from: {url}, save_dir: {save_dir}")
 
     settings = get_settings()
     proxy_servers = settings.proxy_servers.split(
         ",") if settings.proxy_servers and settings.use_proxy else None
 
-    if settings.proxy_servers and settings.use_proxy:
-        logging.debug(
-            f"Proxy servers: {proxy_servers} - using proxy: {settings.use_proxy}")
+    # Create directory if it doesn't exist
+    os.makedirs(save_dir, exist_ok=True)
 
-    # TODO check if file was already downloaded
-    # TODO check if transcription was already done - DB
-    #loader = YoutubeAudioLoader([url], save_dir, proxy_servers).yield_blobs()
+    # Initialize the loader
+    loader = YoutubeAudioLoader([url], save_dir, proxy_servers)
 
-    loader = GenericLoader(YoutubeAudioLoader([url], save_dir, proxy_servers),
-                           OpenAIWhisperParser(api_key=settings.openai_api_key,
-                                               language=lang.value,
-                                               response_format=convert_response_format(
-                                                   response_format),
-                                               temperature=0
-                                               ))
-    docs = loader.load()
+    # Download the audio
+    print(f"Downloading audio from: {url}")
+    blobs = list(loader.yield_blobs())
 
-    # read all docs, get page_content and concatenate
-    return " ".join([doc.page_content for doc in docs])
+    if not blobs:
+        print(f"Failed to download audio from: {url}")
+        return None
+
+    # Return path to the downloaded file
+    audio_path = blobs[0].path
+    print(f"Audio downloaded successfully: {audio_path}")
+    return audio_path
 
 
+@conditional_lru_cache
 @ls.traceable(
     run_type="llm",
     name="Transcription from file",
-    tags=["file", "transcription"],
+    tags=["file", "transcription", "audio"],
     metadata={"flow": "transcription"}
 )
 async def transcribe(file: BinaryIO,
@@ -288,25 +281,37 @@ async def transcribe(file: BinaryIO,
                      ) -> Union[str, List[object]]:
     """
     Transcribe audio file to text
-
-    Handles large files by splitting into chunks and merging the results.
-    For SRT/VTT formats, timestamps and sequence numbers are adjusted.
-    For JSON/VERBOSE_JSON formats, returns a list of results from each chunk.
-
-    inspiration: https://python.langchain.com/docs/integrations/document_loaders/youtube_audio/
-    :param response_format: Desired output format (TEXT, SRT, VTT, JSON, VERBOSE_JSON)
-    :param lang: Lang code (e.g., ENGLISH, POLISH)
-    :param file: audio file (BinaryIO)
-    :return: Transcription result as a string (for TEXT, SRT, VTT) or list of objects (for JSON, VERBOSE_JSON)
     """
     logging.info(
         f"Transcribing audio file: {file.name if hasattr(file, 'name') else 'Unnamed Stream'}, lang: {lang}, format: {response_format}")
 
-    # Ensure file pointer is at the beginning if possible
+    # Reset file position
+    _reset_file_position(file)
+
+    # Get file size
+    size = _get_file_size(file)
+    logging.debug(f"Determined file size: {size} bytes")
+
+    # Process file based on size
+    if size > AUDIO_SPLIT_BYTES:
+        docs = await _process_large_file(file, lang, response_format, size)
+        processed_chunks = True
+    else:
+        docs = await _process_small_file(file, lang, response_format)
+        processed_chunks = False
+
+    # Aggregate results
+    return _aggregate_results(docs, response_format, processed_chunks)
+
+
+def _reset_file_position(file: BinaryIO) -> None:
+    """Reset file pointer to beginning if possible"""
     if file.seekable():
         file.seek(0)
 
-    # Get file size reliably
+
+def _get_file_size(file: BinaryIO) -> int:
+    """Get file size reliably from various file-like objects"""
     size = -1
     try:
         if hasattr(file, 'name') and os.path.exists(file.name):
@@ -321,237 +326,63 @@ async def transcribe(file: BinaryIO,
             size = file.tell()
             file.seek(pos)
     except Exception as e:
+        logging.error(f"Error getting file size: {e}")
+        size = 0
+    return size
+
+
+async def _process_large_file(file: BinaryIO, lang: LANG_CODE, response_format: WHISPER_RESPONSE_FORMAT, size: int) -> List[Union[str, object, None]]:
+    """Process large audio file by splitting into chunks"""
+    logging.info(
+        f"File size {size} > {AUDIO_SPLIT_BYTES}, splitting into chunks")
+
+    # Prepare audio source
+    audio_source = _prepare_audio_source(file)
+
+    try:
+        # Load audio with pydub
+        parts = _load_audio(audio_source)
+
+        # Process chunks
+        docs = await _process_audio_chunks(parts, lang, response_format)
+
+        return docs
+    finally:
+        # Clean up temporary files
+        _cleanup_temp_files(audio_source)
+
+
+async def _process_small_file(file: BinaryIO, lang: LANG_CODE, response_format: WHISPER_RESPONSE_FORMAT) -> List[Union[str, object, None]]:
+    """Process small audio file in one go"""
+    logging.info("File size within limit, processing as a single file")
+    try:
+        if file.seekable():
+            file.seek(0)
+        result = await small_file(file, lang, response_format)
+        return [result]
+    except Exception as e:
         logging.error(
-            f"Error getting file size: {e}. Attempting transcription assuming small file.")
-        size = 0  # Force small file path if stats fail
+            f"Error during single file transcription: {e}", exc_info=True)
+        return [None]
 
-    logging.debug(
-        f"Determined file size: {size} bytes (approx. if read from stream)")
 
-    # Allow for mixed types initially
-    docs: List[Union[str, object, None]] = []
-    processed_chunks = False
-
-    if size > AUDIO_SPLIT_BYTES:
-        processed_chunks = True
-        logging.info(
-            f"File size {size} > {AUDIO_SPLIT_BYTES}, splitting audio file into chunks.")
-
-        # Handle non-seekable stream for Pydub by copying to a temp file
-        if not file.seekable():
-            logging.warning(
-                "Input file stream is not seekable. Reading into temporary file for chunk processing.")
-            temp_file_path = f"{downloads_path()}/temp_audio_{random.randint(0, 100000)}.audio"
-            try:
-                with open(temp_file_path, 'wb') as temp_f:
-                    # We already read the initial part if size wasn't determinable before
-                    if 'initial_chunk' in locals() and initial_chunk:
-                        temp_f.write(initial_chunk)
-                        logging.debug(
-                            f"Wrote initial {len(initial_chunk)} bytes from size check to temp file.")
-                    # Read the rest of the stream
-                    while True:
-                        # Read 10MB at a time
-                        more_data = file.read(10 * 1024 * 1024)
-                        if not more_data:
-                            break
-                        temp_f.write(more_data)
-                audio_source = temp_file_path
-                logging.debug(
-                    f"Using temporary file for pydub: {audio_source}")
-            except Exception as e:
-                logging.error(
-                    f"Failed to create/use temporary file for non-seekable stream: {e}")
-                # Clean up partial temp file if it exists
-                if os.path.exists(temp_file_path):
-                    try:
-                        os.remove(temp_file_path)
-                    except OSError:
-                        pass
-                raise IOError(
-                    "Error processing non-seekable audio stream.") from e
-        else:
-            # Seekable file, pydub can handle it directly
-            file.seek(0)  # Ensure pydub reads from start
-            audio_source = file
-            logging.debug(
-                f"Using seekable file stream for pydub: {getattr(file, 'name', 'Unnamed Stream')}")
-
-        temp_audio_path_to_clean = None
-        if isinstance(audio_source, str):
-            temp_audio_path_to_clean = audio_source  # Mark for cleanup
-
-        try:
-            # Use the determined audio_source (path or file object)
-            # Explicitly provide format if possible, otherwise let pydub guess
-            file_format = None
-            if hasattr(file, 'name') and isinstance(file.name, str):
-                _, ext = os.path.splitext(file.name)
-                if ext:
-                    file_format = ext[1:]  # e.g., 'mp3', 'wav'
-            logging.debug(
-                f"Attempting to load audio with pydub (format hint: {file_format})...")
-            parts = AudioSegment.from_file(
-                audio_source, format=file_format)  # Might need format hint
-            logging.debug(
-                f"Audio loaded successfully. Duration: {len(parts) / 1000.0}s")
-        except Exception as e:
-            logging.error(
-                f"Pydub failed to load audio from {type(audio_source)}: {e}", exc_info=True)
-            # Clean up temp file if we created one
-            if temp_audio_path_to_clean and os.path.exists(temp_audio_path_to_clean):
-                try:
-                    os.remove(temp_audio_path_to_clean)
-                except OSError as ose:
-                    logging.warning(
-                        f"Pydub cleanup failed to remove temp file {temp_audio_path_to_clean}: {ose}")
-            raise ValueError(
-                f"Could not process audio file. Pydub error: {e}") from e
-
-        processing_id = str(random.randint(0, 100000))
-        ten_minutes_ms = TEN_MINUTES
-
-        async def process_chunk(chunk_index, start_ms, end_ms):
-            chunk_num = chunk_index + 1
-            logging.debug(
-                f"Processing chunk {chunk_num} ({start_ms / 1000.0:.2f}s to {end_ms / 1000.0:.2f}s) / Total Duration: {len(parts) / 1000.0:.2f}s")
-            chunk_audio = parts[start_ms:end_ms]
-            chunk_filename = f"{downloads_path()}/{processing_id}_chunk{chunk_num}.mp3"
-
-            try:
-                with open(chunk_filename, "wb") as chunk_f:
-                    chunk_audio.export(chunk_f, format="mp3")
-                logging.debug(
-                    f"Exported chunk {chunk_num} to {chunk_filename}")
-
-                with open(chunk_filename, "rb") as chunk_f_read:
-                    result = await small_file(chunk_f_read, lang, response_format)
-                logging.debug(
-                    f"Chunk {chunk_num} processed successfully by small_file.")
-                return result
-            except Exception as exc:
-                logging.error(
-                    f"Chunk {chunk_num} ({start_ms}ms to {end_ms}ms) generated an exception during processing or API call: {exc}", exc_info=True)
-                return None
-            finally:
-                if os.path.exists(chunk_filename):
-                    try:
-                        os.remove(chunk_filename)
-                        logging.debug(f"Removed chunk file {chunk_filename}")
-                    except OSError as ose:
-                        logging.warning(
-                            f"Failed to remove chunk file {chunk_filename}: {ose}")
-
-        # Create tasks for each chunk
-        tasks = []
-        for i, start_ms in enumerate(range(0, len(parts), ten_minutes_ms)):
-            end_ms = min(start_ms + ten_minutes_ms, len(parts))
-            if start_ms >= end_ms:
-                continue
-            tasks.append(process_chunk(i, start_ms, end_ms))
-
-        # Run all tasks concurrently
-        docs = await asyncio.gather(*tasks)
-
-        # Clean up the main temporary audio file if created
-        if temp_audio_path_to_clean and os.path.exists(temp_audio_path_to_clean):
-            try:
-                os.remove(temp_audio_path_to_clean)
-                logging.debug(
-                    f"Removed temporary audio file: {temp_audio_path_to_clean}")
-            except OSError as ose:
-                logging.warning(
-                    f"Could not remove temporary audio file {temp_audio_path_to_clean}: {ose}")
-
-    else:  # File size <= AUDIO_SPLIT_BYTES
-        processed_chunks = False
-        logging.info("File size within limit, processing as a single file.")
-        try:
-            # Ensure file object is passed correctly and pointer is at start
-            if file.seekable():
-                file.seek(0)  # Ensure reading from the start
-
-            single_result = await small_file(file, lang, response_format)
-            docs = [single_result]
-        except Exception as e:
-            logging.error(
-                f"Error during single file transcription: {e}", exc_info=True)
-            docs = [None]  # Indicate error
-
-    # --- Aggregation Logic ---
-    final_result: Union[str, List[object]]
-
-    # Filter out None results before processing/joining
+def _aggregate_results(docs: List[Union[str, object, None]], response_format: WHISPER_RESPONSE_FORMAT, processed_chunks: bool) -> Union[str, List[object]]:
+    """Aggregate results based on response format"""
+    # Filter out None results
     valid_docs = [doc for doc in docs if doc is not None]
 
     if not valid_docs:
-        logging.warning("No successful transcription results obtained.")
-        # Return appropriate empty result based on format
-        if response_format == WHISPER_RESPONSE_FORMAT.TEXT:
-            final_result = ""
-        elif response_format == WHISPER_RESPONSE_FORMAT.SRT:
-            final_result = ""
-        elif response_format == WHISPER_RESPONSE_FORMAT.VTT:
-            final_result = "WEBVTT\n\n"
-        elif response_format in (WHISPER_RESPONSE_FORMAT.JSON, WHISPER_RESPONSE_FORMAT.VERBOSE_JSON):
-            final_result = []
-        else:
-            final_result = ""  # Default empty
-        return final_result  # Early exit
+        return _get_empty_result(response_format)
 
-    # Process based on format
+    # Format-specific aggregation
     if response_format == WHISPER_RESPONSE_FORMAT.TEXT:
-        # Join text parts, ensuring they are strings
-        final_result = " ".join(str(doc) for doc in valid_docs)
+        return " ".join(str(doc) for doc in valid_docs)
     elif response_format in (WHISPER_RESPONSE_FORMAT.SRT, WHISPER_RESPONSE_FORMAT.VTT):
-        is_vtt = response_format == WHISPER_RESPONSE_FORMAT.VTT
-        format_str: Literal['srt', 'vtt'] = 'vtt' if is_vtt else 'srt'
-        # Combine if multiple chunks were processed OR if single chunk result needs format check
-        if processed_chunks:
-            # Pass the original ordered_results (potentially containing None) to the combiner
-            # This allows calculating offset correctly based on chunk index.
-            final_result = _combine_subtitle_chunks(
-                docs, TEN_MINUTES, format_str)
-        elif len(valid_docs) == 1:
-            # Small file or only one valid chunk. Result should be a string.
-            single_result_str = str(valid_docs[0])
-            # Basic validation/cleanup for single subtitle file
-            if is_vtt and not single_result_str.strip().startswith("WEBVTT"):
-                logging.warning(
-                    "Adding missing WEBVTT header to single VTT result.")
-                final_result = "WEBVTT\n\n" + single_result_str.strip() + "\n\n"
-            elif not is_vtt and re.match(r"^\s*WEBVTT", single_result_str):
-                logging.warning(
-                    "Removing WEBVTT header from single SRT result.")
-                final_result = re.sub(
-                    r"^\s*WEBVTT\s*\n+", "", single_result_str) + "\n\n"
-            else:
-                final_result = single_result_str  # Assume it's okay
-            # Ensure final newline(s)
-            if not final_result.endswith("\n\n"):
-                if final_result.endswith("\n"):
-                    final_result += "\n"
-                else:
-                    final_result += "\n\n"
-
-        else:
-            # No valid docs, should have been caught earlier, but as fallback:
-            logging.error(
-                f"Unexpected state for SRT/VTT aggregation. Valid docs: {len(valid_docs)}, processed_chunks: {processed_chunks}")
-
-        if is_vtt:
-            final_result = "WEBVTT\n\n" + final_result
-
+        return _aggregate_subtitle_format(valid_docs, response_format, processed_chunks)
     elif response_format in (WHISPER_RESPONSE_FORMAT.JSON, WHISPER_RESPONSE_FORMAT.VERBOSE_JSON):
-        # Return list of results (assuming they are appropriate JSON objects/dicts from small_file)
-        final_result = valid_docs
+        return valid_docs
     else:
-        # Fallback for any unexpected format
-        logging.warning(
-            f"Unhandled response format for aggregation: {response_format}. Joining as text.")
-        final_result = " ".join(str(doc) for doc in valid_docs)
-
-    return final_result
+        return " ".join(str(doc) for doc in valid_docs)
 
 
 @conditional_lru_cache
@@ -576,3 +407,156 @@ async def small_file(file: BinaryIO, lang: LANG_CODE = LANG_CODE.ENGLISH, respon
     )
 
     return transcription
+
+
+def _prepare_audio_source(file: BinaryIO) -> Union[str, BinaryIO]:
+    """Prepare audio source for pydub, handling non-seekable streams."""
+    temp_audio_path = None
+
+    # Handle non-seekable stream
+    if not file.seekable():
+        logging.warning(
+            "Input file stream is not seekable. Reading into temporary file.")
+        temp_audio_path = f"{downloads_path()}/temp_audio_{random.randint(0, 100000)}.audio"
+        try:
+            with open(temp_audio_path, 'wb') as temp_f:
+                while True:
+                    chunk = file.read(10 * 1024 * 1024)  # 10MB chunks
+                    if not chunk:
+                        break
+                    temp_f.write(chunk)
+            return temp_audio_path
+        except Exception as e:
+            logging.error(f"Failed to create temporary file: {e}")
+            if os.path.exists(temp_audio_path):
+                os.remove(temp_audio_path)
+            raise IOError("Error processing non-seekable audio stream.") from e
+    else:
+        # Use seekable file directly
+        file.seek(0)
+        return file
+
+
+def _load_audio(audio_source: Union[str, BinaryIO]) -> AudioSegment:
+    """Load audio with pydub from file or stream."""
+    file_format = None
+    if isinstance(audio_source, BinaryIO) and hasattr(audio_source, 'name'):
+        _, ext = os.path.splitext(audio_source.name)
+        if ext:
+            file_format = ext[1:]
+
+    logging.debug(f"Loading audio with format hint: {file_format}")
+    try:
+        return AudioSegment.from_file(audio_source, format=file_format)
+    except Exception as e:
+        logging.error(f"Pydub failed to load audio: {e}", exc_info=True)
+        raise ValueError(f"Could not process audio file: {e}") from e
+
+
+async def _process_audio_chunks(parts: AudioSegment, lang: LANG_CODE,
+                                response_format: WHISPER_RESPONSE_FORMAT) -> List[Union[str, object, None]]:
+    """Process audio in chunks."""
+    processing_id = str(random.randint(0, 100000))
+    ten_minutes_ms = TEN_MINUTES
+
+    async def process_chunk(chunk_index, start_ms, end_ms):
+        chunk_num = chunk_index + 1
+        logging.debug(
+            f"Processing chunk {chunk_num} ({start_ms/1000.0:.2f}s to {end_ms/1000.0:.2f}s)")
+
+        chunk_audio = parts[start_ms:end_ms]
+        chunk_filename = f"{downloads_path()}/{processing_id}_chunk{chunk_num}.mp3"
+
+        try:
+            # Export chunk to file
+            with open(chunk_filename, "wb") as chunk_f:
+                chunk_audio.export(chunk_f, format="mp3")
+
+            # Process chunk
+            with open(chunk_filename, "rb") as chunk_f_read:
+                result = await small_file(chunk_f_read, lang, response_format)
+            return result
+        except Exception as e:
+            logging.error(
+                f"Chunk {chunk_num} processing error: {e}", exc_info=True)
+            return None
+        finally:
+            if os.path.exists(chunk_filename):
+                try:
+                    os.remove(chunk_filename)
+                except OSError as e:
+                    logging.warning(
+                        f"Failed to remove chunk file {chunk_filename}: {e}")
+
+    # Create tasks for each chunk
+    tasks = []
+    for i, start_ms in enumerate(range(0, len(parts), ten_minutes_ms)):
+        end_ms = min(start_ms + ten_minutes_ms, len(parts))
+        if start_ms >= end_ms:
+            continue
+        tasks.append(process_chunk(i, start_ms, end_ms))
+
+    # Run tasks concurrently
+    return await asyncio.gather(*tasks)
+
+
+def _cleanup_temp_files(audio_source: Union[str, BinaryIO]) -> None:
+    """Clean up temporary files if created."""
+    if isinstance(audio_source, str) and os.path.exists(audio_source):
+        try:
+            os.remove(audio_source)
+            logging.debug(f"Removed temporary audio file: {audio_source}")
+        except OSError as e:
+            logging.warning(
+                f"Could not remove temporary file {audio_source}: {e}")
+
+
+def _get_empty_result(response_format: WHISPER_RESPONSE_FORMAT) -> Union[str, List]:
+    """Return appropriate empty result based on format."""
+    logging.warning("No successful transcription results obtained.")
+    if response_format == WHISPER_RESPONSE_FORMAT.TEXT:
+        return ""
+    elif response_format == WHISPER_RESPONSE_FORMAT.SRT:
+        return ""
+    elif response_format == WHISPER_RESPONSE_FORMAT.VTT:
+        return "WEBVTT\n\n"
+    elif response_format in (WHISPER_RESPONSE_FORMAT.JSON, WHISPER_RESPONSE_FORMAT.VERBOSE_JSON):
+        return []
+    return ""
+
+
+def _aggregate_subtitle_format(valid_docs: List[Union[str, object]],
+                               response_format: WHISPER_RESPONSE_FORMAT,
+                               processed_chunks: bool) -> str:
+    """Aggregate subtitle format results (SRT/VTT)."""
+    is_vtt = response_format == WHISPER_RESPONSE_FORMAT.VTT
+    format_str: Literal['srt', 'vtt'] = 'vtt' if is_vtt else 'srt'
+
+    if processed_chunks:
+        # Combine chunks with timestamp adjustments
+        return _combine_subtitle_chunks(valid_docs, TEN_MINUTES, format_str)
+    elif len(valid_docs) == 1:
+        # Single result needs format validation
+        single_result_str = str(valid_docs[0])
+
+        if is_vtt and not single_result_str.strip().startswith("WEBVTT"):
+            logging.warning("Adding missing WEBVTT header")
+            result = "WEBVTT\n\n" + single_result_str.strip() + "\n\n"
+        elif not is_vtt and re.match(r"^\s*WEBVTT", single_result_str):
+            logging.warning("Removing WEBVTT header from SRT result")
+            result = re.sub(r"^\s*WEBVTT\s*\n+", "",
+                            single_result_str) + "\n\n"
+        else:
+            result = single_result_str
+
+        # Ensure proper ending
+        if not result.endswith("\n\n"):
+            if result.endswith("\n"):
+                result += "\n"
+            else:
+                result += "\n\n"
+        return result
+
+    # Fallback case
+    logging.error("Unexpected state for subtitle aggregation")
+    return ""

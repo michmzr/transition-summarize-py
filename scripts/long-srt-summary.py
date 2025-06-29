@@ -18,6 +18,36 @@ from langchain_openai import ChatOpenAI
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_community.document_loaders import TextLoader
 import langsmith as ls
+import tiktoken
+import logging
+from typing import List
+import anthropic
+# from app.utils.tokens import anthropic_count_tokens, openai_count_tokens
+
+
+def anthropic_count_tokens(user_prompt: str, system_prompt: str, model: str) -> int:
+    client = anthropic.Anthropic()
+
+    response = client.messages.count_tokens(
+        model=model,
+        system=system_prompt,
+        messages=[{
+            "role": "user",
+            "content": user_prompt
+        }],
+    )
+
+    logging.debug(response.model_dump_json())
+
+    # get field "input_tokens"
+    return response.input_tokens
+
+
+def openai_count_tokens(user_prompt: str, model: str) -> int:
+    enc = tiktoken.encoding_for_model(model)
+    tokens = enc.encode(user_prompt)
+    return len(tokens)
+
 
 @dataclass
 class SubtitleEntry:
@@ -174,13 +204,25 @@ def chunk_transcript(output_dir: str, trans_file_path: str, chunk_duration_minut
 
 def prompts01(lang: str):
     map_prompt_template = """
-                        Write a summary in language with code='{lang}' of this chunk of text that includes the main points and any important details.
+                        "As a professional academic summarizer, create a detailed, in-depth, and concise summary in language with code='{lang}' of this chunk of text that includes the main points and any important details.
                         Strongly adhere to the following guidelines:
-                            - Incorporate main ideas and essential information, eliminating extraneous language and focusing on critical aspects.
                             - Rely strictly on the provided text, without including external information.
-                            - Format the summary in paragraph form for easy understanding.
+                            - Format the summary in bullets form for easy understanding.
                             - If chunks describes any technniques, approaches, strategies,patterns, methods, tools, software, hardware, services, products etc. list them in seperated subsections. Give as mush details as possible ,If empty, just skip it
                             - Prepare very detailed bullet points list: what happened, subjects, details, people, places, things, events, etc.
+                        Return result in XML format.
+                        <summary time_start='{time_start}' time_end='{time_end}'>
+                            <bullets>
+                                {text}
+                            </bullets>
+                            <techniques>
+                                {techniques}
+                            </techniques>
+                            <tools>
+                                {tools}
+                            </tools>
+                            ....
+                        </summary>
                         ###
                         {text}
                         """
@@ -189,7 +231,7 @@ def prompts01(lang: str):
         template=map_prompt_template, input_variables=["text", "lang"])
 
     combine_prompt_template = """As a professional summarizer, create a detailed, in-depth, and concise summary in language with code='{lang}' of the provided text, while strongly adhering to these guidelines:
-            - Incorporate main ideas and essential information, eliminating extraneous language and focusing on critical aspects.
+            - Incorporate ideas and essential informations, eliminating extraneous language and focusing on critical aspects. Try to get as much details as possible in summarization.
             - Rely strictly on the provided text, without including external information.
             - Format the summary in paragraph form for easy understanding.
             - The entire content should be organized in a clear and logical manner
@@ -203,11 +245,14 @@ def prompts01(lang: str):
 
             My needs:
             - I want to get super detailed summary of super important text. I use it for my research job and i need to get all the details from the text.
+            - I will pay you extra if you can provide me with a very detailed summary of the text in the language of the text. I need to get all the details from the text.
 
-            I will pay you extra if you can provide me with a very detailed summary of the text in the language of the text. I need to get all the details from the text.
+            You will get a chunks summarizations in XML format. You need to extract all the information from the text and return it in markdown format.
 
             ###
+            <summaries>
             {text}
+            </summaries>
             """
 
     combine_prompt = PromptTemplate(
@@ -281,6 +326,19 @@ def run_model_map_reduce(model_name: str, docs: List, prompts: Tuple[PromptTempl
 
     return model_name
 
+
+def count_tokens(input_file: str, models: List[str]):
+    file_content = ""
+    with open(input_file, "r") as f:
+        file_content = f.read()
+
+    for model in models:
+        if model.startswith("gpt"):
+            tokens = openai_count_tokens(file_content, model)
+        elif model.startswith("claude"):
+            tokens = anthropic_count_tokens(file_content, "", model)
+        print(f"[{model}] Source file has {tokens} tokens")
+
 def main():
     parser = argparse.ArgumentParser(
         description='Split an SRT file into chunks of specified duration.')
@@ -288,7 +346,7 @@ def main():
                         help='Path to the input SRT file')
     parser.add_argument('--output-dir', '-o', type=str, default='scripts/data/chunks',
                         help='Directory to save the output chunks')
-    parser.add_argument('--chunk-duration', '-d', type=int, default=10,
+    parser.add_argument('--chunk-duration', '-d', type=int, default=30,
                         help='Duration of each chunk in minutes')
     parser.add_argument('--lang', '-l', type=str, default='pl',
                         help='Language code for summarization')
@@ -305,8 +363,9 @@ def main():
     print(f"Created {len(chunks)} chunks")
 
     # Set up LangChain
-    models = ["gpt-4o", "gpt-4o-mini", "claude-3-7-sonnet-20250219",
-              "claude-3-5-haiku-20241022"]  #
+    models = ["gpt-4o",  "claude-3-7-sonnet-20250219",]  # "gpt-4o-mini",
+
+    count_tokens(args.input, models)
 
     # Load chunks to LangChain once (shared across all models)
     docs = []

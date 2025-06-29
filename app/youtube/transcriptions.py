@@ -1,14 +1,10 @@
 import logging
 from app.transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT
-from app.utils.internet import download_file
+from app.utils.internet import get_url_content
 from app.youtube.metadata import get_youtube_metadata
 
 
-def download_transcription(
-        url: str, lang: LANG_CODE,
-        transcription_format: WHISPER_RESPONSE_FORMAT,
-        save_dir: str):
-
+def download_transcription(url: str, lang: LANG_CODE, transcription_format: WHISPER_RESPONSE_FORMAT) -> str | None:
     logging.info(
         f" Using YT transcription: '{url}' for language '{lang}' and transcription format '{transcription_format}'")
     yt_details = get_youtube_metadata(url)
@@ -26,11 +22,10 @@ def download_transcription(
             if subtitle_url:
                 logging.info(
                     f"Downloaded YT transcription: '{subtitle_url}' for language '{lang}' and video '{url}'")
-                transcription_file = download_file(subtitle_url, save_dir)
 
-                transcription = open(transcription_file, "r").read()
+                transcription = get_url_content(subtitle_url)
                 logging.debug(
-                    f"Downloaded transcription to file {transcription_file}")
+                    f"Downloaded transcription content - size: {len(transcription)}, format: {transcription_format}, url: {subtitle_url}")
                 return transcription
             else:
                 logging.info(

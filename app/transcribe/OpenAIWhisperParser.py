@@ -42,7 +42,8 @@ class OpenAIWhisperParser(BaseBlobParser):
         self.api_key = api_key
         self.chunk_duration_threshold = chunk_duration_threshold
         self.base_url = (
-            base_url if base_url is not None else os.environ.get("OPENAI_API_BASE")
+            base_url if base_url is not None else os.environ.get(
+                "OPENAI_API_BASE")
         )
         self.language = language
         self.prompt = prompt
@@ -84,7 +85,8 @@ class OpenAIWhisperParser(BaseBlobParser):
 
         if is_openai_v1():
             # api_key optional, defaults to `os.environ['OPENAI_API_KEY']`
-            client = wrap_openai(openai.OpenAI(api_key=self.api_key, base_url=self.base_url))
+            client = wrap_openai(openai.OpenAI(
+                api_key=self.api_key, base_url=self.base_url))
         else:
             # Set the API key if provided
             if self.api_key:
@@ -114,7 +116,8 @@ class OpenAIWhisperParser(BaseBlobParser):
                 file_obj.name = f"part_{split_number}.mp3"
 
             # Transcribe
-            print(f"Transcribing part {split_number + 1}!")  # noqa: T201
+            logger.info(
+                f"Transcribing part {split_number + 1}, size: {file_obj.tell()}")
             attempts = 0
             while attempts < 3:
                 try:
@@ -124,14 +127,16 @@ class OpenAIWhisperParser(BaseBlobParser):
                             model="whisper-1", file=file_obj, **self._create_params
                         )
                     else:
-                        transcript = openai.Audio.transcribe("whisper-1", file_obj)
+                        transcript = openai.Audio.transcribe(
+                            "whisper-1", file_obj)
                     break
                 except Exception as e:
                     attempts += 1
-                    print(f"Attempt {attempts} failed. Exception: {str(e)}")  # noqa: T201
+                    logger.warning(
+                        f"Attempt {attempts} failed. Exception: {str(e)}")
                     time.sleep(5)
             else:
-                print("Failed to transcribe after 3 attempts.")  # noqa: T201
+                logger.error("Failed to transcribe after 3 attempts.")
                 continue
 
             if transcript is openai.types.audio.transcription.Transcription:
@@ -164,9 +169,6 @@ class OpenAIWhisperParserLocal(BaseBlobParser):
           task="transcribe")
         forced_decoder_ids = WhisperProcessor.get_decoder_prompt_ids(language="french",
         task="translate")
-
-
-
     """
 
     def __init__(
@@ -215,7 +217,8 @@ class OpenAIWhisperParserLocal(BaseBlobParser):
             self.lang_model = lang_model if lang_model else default_model
         else:
             # Set the language model based on the device and available memory
-            mem = torch.cuda.get_device_properties(self.device).total_memory / (1024 ** 2)
+            mem = torch.cuda.get_device_properties(
+                self.device).total_memory / (1024 ** 2)
             if mem < 5000:
                 rec_model = "openai/whisper-base"
             elif mem < 7000:
@@ -226,7 +229,7 @@ class OpenAIWhisperParserLocal(BaseBlobParser):
                 rec_model = "openai/whisper-large"
             self.lang_model = lang_model if lang_model else rec_model
 
-        print("Using the following model: ", self.lang_model)  # noqa: T201
+        logger.info(f"Using the following model: {self.lang_model}")
 
         self.batch_size = batch_size
 
@@ -274,7 +277,7 @@ class OpenAIWhisperParserLocal(BaseBlobParser):
         file_obj = io.BytesIO(audio.export(format="mp3").read())
 
         # Transcribe
-        print(f"Transcribing part {blob.path}!")  # noqa: T201
+        logger.info(f"Transcribing part {blob.path}")
 
         y, sr = librosa.load(file_obj, sr=16000)
 
@@ -340,11 +343,13 @@ class YandexSTTParser(BaseBlobParser):
 
         if self.api_key:
             configure_credentials(
-                yandex_credentials=creds.YandexCredentials(api_key=self.api_key)
+                yandex_credentials=creds.YandexCredentials(
+                    api_key=self.api_key)
             )
         else:
             configure_credentials(
-                yandex_credentials=creds.YandexCredentials(iam_token=self.iam_token)
+                yandex_credentials=creds.YandexCredentials(
+                    iam_token=self.iam_token)
             )
 
         audio = AudioSegment.from_file(blob.path)
@@ -430,7 +435,8 @@ class FasterWhisperParser(BaseBlobParser):
             self.model_size = "base"
         else:
             # Set the model_size based on the available memory
-            mem = torch.cuda.get_device_properties(self.device).total_memory / (1024 ** 2)
+            mem = torch.cuda.get_device_properties(
+                self.device).total_memory / (1024 ** 2)
             if mem < 1000:
                 self.model_size = "base"
             elif mem < 3000:

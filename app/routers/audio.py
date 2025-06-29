@@ -17,7 +17,7 @@ from app.summary.summarization import summarize
 from app.transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT, transcribe
 from app.utils.files import string_to_filename
 
-VALID_AUDIO_EXTENSIONS = ('flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm')
+VALID_AUDIO_EXTENSIONS = ('m4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'wav', 'webm')
 
 a_router = APIRouter(
     prefix="/audio",

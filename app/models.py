@@ -16,11 +16,9 @@ class SUMMARIZATION_TYPE(str, Enum):
 class YTVideoTranscribe(BaseModel):
     url: str
     lang: LANG_CODE = Field(default=LANG_CODE.POLISH,
-                            title="Video language as ISO-639-1 code like PL, EN"),
+                            title="Video language as ISO-639-1 code like PL, EN")
     response_format: WHISPER_RESPONSE_FORMAT = Field(
         default=WHISPER_RESPONSE_FORMAT.SRT, title="Response format")
-    use_yt_transcription: bool = Field(
-        default=True, title="Use YT transcription or generate new one. If YT transcription is nto found then transcription will be generated")
 
     model_config = {
         "json_schema_extra": {
@@ -28,8 +26,7 @@ class YTVideoTranscribe(BaseModel):
                 {
                     "url": "https://www.youtube.com/shorts/tvPMT89eJWo",
                     "lang": "pl",
-                    "response_format": "srt",
-                    "use_yt_transcription": True
+                    "response_format": "srt"
                 }
             ]
         }
@@ -73,8 +70,7 @@ class YtVideoSummarize(BaseModel):
         default=SUMMARIZATION_TYPE.TLDR, title="Type of summarization")
     lang: LANG_CODE = Field(default=LANG_CODE.POLISH,
                             title="Language code of transcription and final summarization text")
-    use_yt_transcription: bool = Field(
-        default=True, title="Use YT transcription or generate new one. If YT transcription is nto found then transcription will be generated")
+
     response_format: WHISPER_RESPONSE_FORMAT = Field(
         default=WHISPER_RESPONSE_FORMAT.SRT, title="Response format")
 
@@ -85,7 +81,6 @@ class YtVideoSummarize(BaseModel):
                     "url": "https://www.youtube.com/shorts/tvPMT89eJWo",
                     "type": "detailed",
                     "lang": "pl",
-                    "use_yt_transcription": True,
                     "response_format": "srt"
                 }
             ]

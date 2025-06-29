@@ -49,7 +49,7 @@
             "args": [
                 "--input", "${workspaceFolder}/scripts/data/o_startegiach.srt",
                 "--output-dir", "${workspaceFolder}/scripts/data/chunks",
-                "--chunk-duration", "20"
+                "--chunk-duration", "60"
             ],
             "justMyCode": false,
             "envFile": "${workspaceFolder}/.env",

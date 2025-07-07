@@ -1,21 +1,26 @@
 import hashlib
 import logging
 import os
+import tempfile
 
-from fastapi import APIRouter, Request, Depends, Response, status
+from fastapi import APIRouter, HTTPException, Request, Depends, Response, status, UploadFile
 from fastapi.responses import FileResponse
 from starlette.responses import PlainTextResponse
+from tempfile import SpooledTemporaryFile
 
 from app.auth import get_current_active_user
 from app.models import YtVideoSummarize, YTVideoTranscribe, YtVideoInfoRequest, YoutubeMetadata, SummaryResult, \
     ApiProcessingResult
 from app.processing.processing import complete_process, process_failed, register_new_process, register_process_artifact, update_process_status
+from app.routers.audio import transcribe_uploaded_file
 from app.schema.models import ProcessArtifactFormat, ProcessArtifactType, RequestStatus, RequestType
 from app.schema.pydantic_models import CompletedProcess, User
 from app.summary.summarization import summarize
-from app.transcribe.transcription import yt_transcribe, WHISPER_RESPONSE_FORMAT
+from app.transcribe.transcription import download_and_extract_audio_from_link, transcribe
+from app.utils.files import string_to_filename
 from app.youtube.metadata import get_youtube_metadata
-from app.youtube.transcriptions import download_transcription
+from app.youtube.transcriptions import download_transcription_from_yt
+
 yt_router = APIRouter(
     prefix="/youtube",
     tags=["youtube", "transcription", "summarization"],
@@ -23,8 +28,8 @@ yt_router = APIRouter(
 )
 
 
-@yt_router.post("/transcribe", response_model=ApiProcessingResult)
-def yt_transcription(
+@yt_router.post("/transcribe")
+async def yt_transcription(
         request: Request,
         yt_request: YTVideoTranscribe,
         response: Response,
@@ -38,7 +43,10 @@ def yt_transcription(
         yt_request (YTVideoTranscribe): The request body containing YouTube video details.
 
     Returns:
-        ApiProcessingResult: The transcription result.
+        Various responses based on Accept header:
+        - PlainTextResponse: If Accept header is "text/plain"
+        - FileResponse: If Accept header is "text/<format>"
+        - ApiProcessingResult: For other Accept headers and error cases
     Description:
         This endpoint transcribes a YouTube video based on the provided URL, language, and response format.
         It can return the result as plain text or JSON based on the Accept header.
@@ -50,20 +58,43 @@ def yt_transcription(
     try:
         logging.info(f"yt transcribe - request details: {yt_request}")
 
+        details = get_youtube_metadata(yt_request.url)
+        logging.debug(f"YT details: {details}")
+
         process_id = register_new_process(
             current_user,
             request_type=RequestType.YOUTUBE,
             request=request,
             request_data={
-                "yt_request": yt_request.model_dump()}
+                "yt_request": yt_request.model_dump(),
+                "yt_details": {"name": details.title, "channel": details.channel_url, "description": details.description}}
         )
 
         save_dir = save_dir_path(yt_request.url)
-        transcription = yt_transcribe(
-            yt_request.url,
-            save_dir,
-            yt_request.lang,
-            yt_request.response_format)
+
+        transcription = None
+        if yt_request.use_yt_transcription:
+            logging.info(f"Using YT transcription: {yt_request.url}")
+
+            transcription = download_transcription_from_yt(
+                yt_request.url, yt_request.lang)
+
+        if not transcription:
+            logging.info(f"Using Whisper transcription: {yt_request.url}")
+
+            transcription = await download_audio_and_transcribe(
+                yt_request.url, save_dir, process_id, yt_request.lang, yt_request.response_format)
+
+        if not transcription:
+            process_failed(
+                process_id, "Failed to obtain transcription from both YouTube and Whisper")
+            response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+            return ApiProcessingResult(
+                error="Failed to obtain transcription from both YouTube and Whisper",
+            )
+
+        logging.info(
+            f"Transcription generated with length: {len(transcription)}")
 
         update_process_status(process_id, CompletedProcess(
             user_id=current_user.id,
@@ -76,12 +107,20 @@ def yt_transcription(
 
         # Get the Accept header from the request
         accept_header = request.headers.get("Accept", "application/json")
+        logging.info(f"Accept header: {accept_header}")
+        ext = yt_request.response_format.value
 
-        # If the Accept header is "text/plain", return plain text
         if accept_header == "text/plain":
             return PlainTextResponse(transcription)
+        elif accept_header == "text/"+ext:
+            # return as a file - encode name to be safe as filename
+            file_name = filename_from_yt_details(details) + "." + ext
+            logging.info(f"File name: {file_name}")
+
+            # Save transcription as a temporary file
+            return create_temp_for_response(file_name, ext, transcription)
         else:
-            return ApiProcessingResult(result=True, error=None, transcription=transcription, format=yt_request.response_format)
+            return ApiProcessingResult(result=transcription)
     except Exception as e:
         logging.error(f"Error processing YouTube transcription: {str(e)}")
 
@@ -90,9 +129,31 @@ def yt_transcription(
 
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return ApiProcessingResult(
-            result=False,
             error=f"Internal server error: {str(e)}",
         )
+
+
+def filename_from_yt_details(details: YoutubeMetadata):
+    video_name = details.title.replace(" ", "_")[:10]
+    file_name = string_to_filename(video_name)
+    return file_name
+
+
+def create_temp_for_response(name: str, ext: str, content: str):
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as temp:
+        temp.write(content.encode('utf-8'))
+        temp.flush()
+        # Map extension to proper MIME type
+        media_type = "text/plain"
+        if ext == "md":
+            media_type = "text/markdown"
+        elif ext == "srt":
+            media_type = "text/srt"
+        else:
+            media_type = f"text/{ext}"
+        # Ensure the filename is correct, without duplicate extension
+        filename = name if name.endswith(f".{ext}") else f"{name}.{ext}"
+        return FileResponse(temp.name, media_type=media_type, filename=filename)
 
 
 def save_dir_path(url):
@@ -111,8 +172,57 @@ def save_dir_path(url):
     return save_dir
 
 
-@yt_router.post("/summarize", response_model=ApiProcessingResult)
-def yt_summarize(
+async def download_audio_and_transcribe(url: str, save_dir: str, process_id: str, lang: str, response_format):
+    """
+    Download audio from YouTube URL and transcribe it using Whisper.
+
+    Args:
+        url (str): YouTube URL to download audio from
+        save_dir (str): Directory to save the downloaded audio
+        process_id (str): Process ID for error handling
+        lang (str): Language code for transcription
+        response_format: Response format for transcription
+
+    Returns:
+        str: The transcription text
+
+    Raises:
+        HTTPException: If audio download or transcription fails
+    """
+    audio_file = download_and_extract_audio_from_link(url, save_dir)
+
+    if not audio_file:
+        process_failed(
+            process_id, f"Failed to download audio from the YouTube video - url: {url}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to download audio from the YouTube video - url: {url}")
+
+    # Create a temporary file and prepare a UploadFile from it
+    temp_file = SpooledTemporaryFile()
+    with open(audio_file, 'rb') as f:
+        temp_file.write(f.read())
+    temp_file.seek(0)
+
+    # Create UploadFile with the correct filename
+    filename = os.path.basename(str(audio_file))
+    mock_upload_file = UploadFile(
+        file=temp_file,
+        filename=filename
+    )
+
+    try:
+        transcription = await transcribe_uploaded_file(
+            mock_upload_file, lang, response_format)
+        return transcription
+    finally:
+        # Clean up resources
+        await mock_upload_file.close()
+        temp_file.close()
+        os.remove(audio_file)
+
+
+@yt_router.post("/summarize", response_model=SummaryResult | ApiProcessingResult)
+async def yt_summarize(
         request: Request,
         yt_request: YtVideoSummarize,
         response: Response,
@@ -126,7 +236,11 @@ def yt_summarize(
         yt_request (YtVideoSummarize): The request body containing YouTube video details and summarization options.
 
     Returns:
-        ApiProcessingResult: The summarization result.
+        Various responses based on Accept header:
+        - PlainTextResponse: If Accept header is "text/plain"
+        - FileResponse: If Accept header is "text/srt"
+        - SummaryResult: For other Accept headers
+        - ApiProcessingResult: For error cases
 
     Description:
         This endpoint transcribes a YouTube video and then summarizes the transcription.
@@ -139,12 +253,15 @@ def yt_summarize(
     try:
         logging.info(f"yt summarize - Request details: {yt_request:}")
 
+        details = get_youtube_metadata(yt_request.url)
+
         process_id = register_new_process(
             current_user,
             RequestType.YOUTUBE,
             request=request,
             request_data={
-                "yt_request": yt_request.model_dump()}
+                "yt_request": yt_request.model_dump(),
+                "yt_details": {"name": details.title, "channel": details.channel_url, "description": details.description}}
         )
 
         save_dir = save_dir_path(yt_request.url)
@@ -154,14 +271,25 @@ def yt_summarize(
         if yt_request.use_yt_transcription:
             logging.info(
                 f" Using YT transcription: '{yt_request.url}' for language '{yt_request.lang}'")
-            transcription = download_transcription(
-                yt_request.url, yt_request.lang, save_dir)
-            logging.debug(
-                f"Downloaded transcription\n-----------------\n\n{transcription}\n-----------------\n\n")
+            transcription = download_transcription_from_yt(
+                yt_request.url, yt_request.lang)
+            if transcription:
+                logging.debug(
+                    f"Downloaded transcription with length: {len(transcription)}")
 
         if not transcription:
-            transcription = yt_transcribe(
-                yt_request.url, save_dir, yt_request.lang, WHISPER_RESPONSE_FORMAT.SRT)
+            logging.info(
+                f"Using Whisper transcription: '{yt_request.url}' for language '{yt_request.lang}'")
+            transcription = await download_audio_and_transcribe(
+                yt_request.url, save_dir, process_id, yt_request.lang, yt_request.response_format)
+
+        if not transcription:
+            process_failed(
+                process_id, "Failed to obtain transcription from both YouTube and Whisper")
+            response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+            return ApiProcessingResult(
+                error="Failed to obtain transcription from both YouTube and Whisper",
+            )
 
         register_process_artifact(
             current_user, process_id,
@@ -169,7 +297,7 @@ def yt_summarize(
             transcription,
             ProcessArtifactFormat.TEXT, yt_request.lang)
 
-        summarization = summarize(
+        summarization = await summarize(
             transcription, yt_request.type, yt_request.lang)
         register_process_artifact(
             current_user, process_id,
@@ -177,22 +305,31 @@ def yt_summarize(
             summarization,
             ProcessArtifactFormat.TEXT, yt_request.lang)
 
-        logging.debug(f"yt summarize - Result: \n{summarization}")
+        if not summarization:
+            raise HTTPException(
+                status_code=500, detail="Summarization not found or empty")
+
+        logging.info(
+            f"Summarization generated with length: {len(summarization)}")
+        logging.debug(
+            f"yt summarize - Result: \n{summarization}\n")
 
         complete_process(process_id)
 
         # Get the Accept header from the request
         accept_header = request.headers.get("Accept", "application/json")
 
-        # If the Accept header is "text/plain", return plain text
         if accept_header == "text/plain":
             return PlainTextResponse(summarization)
-        elif accept_header == "text/srt":
-            # return as a file
-            return FileResponse(transcription, media_type="text/srt")
+        elif accept_header == "text/markdown":
+            file_name = filename_from_yt_details(details) + ".md"
+            logging.info(f"File name: {file_name}")
+
+            return create_temp_for_response(file_name, "md", summarization)
         else:
             return SummaryResult(summary=summarization)
     except Exception as e:
+        e.with_traceback
         logging.error(f"Error processing YouTube summarization: '{str(e)}'")
 
         if process_id:
@@ -200,9 +337,8 @@ def yt_summarize(
 
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return ApiProcessingResult(
-            result=False,
-            error="Error processing YouTube summarization",
-            text=str(e))
+            error=f"Error summarizing YouTube video: {str(e)}",
+        )
 
 
 @yt_router.post("/details", response_model=YoutubeMetadata | ApiProcessingResult)
@@ -250,6 +386,5 @@ def yt_details(
 
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return ApiProcessingResult(
-            result=False,
-            error=f"Error processing YouTube details extraction: {str(e)}",
-            text=str(e))
+            error=f"Error fetching YouTube details: {str(e)}",
+        )

@@ -4,6 +4,7 @@ import shutil
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from app import database
 from app.auth import get_password_hash
@@ -23,13 +24,21 @@ def test_db():
     # Clean up any existing test user first
     SessionMaker = get_session_maker()
     db = SessionMaker()
-    db.query(UserDB).filter(UserDB.username == "testuser").delete()
+
+    testusername = "testuser"
+
+    # First delete related records in correct order
+    db.execute(text('DELETE FROM process_artifacts WHERE request_id IN (SELECT id FROM uprocess WHERE user_id IN (SELECT id FROM users WHERE username = :username))'), {
+               "username": testusername})
+    db.execute(text('DELETE FROM uprocess WHERE user_id IN (SELECT id FROM users WHERE username = :username)'), {
+               "username": testusername})
+    db.query(UserDB).filter(UserDB.username == testusername).delete()
     db.commit()
 
     # Create test user
     hashed_password = get_password_hash("testpass123")
     test_user = UserDB(
-        username="testuser",
+        username=testusername,
         email="test@example.com",
         hashed_password=hashed_password,
         is_active=True
@@ -39,8 +48,12 @@ def test_db():
 
     yield db
 
-    # Cleanup after test
-    db.query(UserDB).filter(UserDB.username == "testuser").delete()
+    # Cleanup after test - delete in correct order to respect foreign keys
+    db.execute(text('DELETE FROM process_artifacts WHERE request_id IN (SELECT id FROM uprocess WHERE user_id IN (SELECT id FROM users WHERE username = :username))'), {
+               "username": testusername})
+    db.execute(text('DELETE FROM uprocess WHERE user_id IN (SELECT id FROM users WHERE username = :username)'), {
+               "username": testusername})
+    db.query(UserDB).filter(UserDB.username == testusername).delete()
     db.commit()
     db.close()
 
@@ -69,18 +82,18 @@ def audio_file():
 @pytest.mark.unit
 @pytest.mark.integration_no_yt
 async def test_audio_transcribe_valid_file(audio_file, auth_headers):
-    response = client.post(
-        "/api/audio/transcribe",
-        files={"uploaded_file": audio_file},
-        data={"lang": "pl"},
-        headers=auth_headers
-    )
-    
-    json = response.json()
-    assert response.status_code == 200
-    assert json["result"]
-    assert "transcription" in json
-    assert "format" in json
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
+        response = await ac.post(
+            "/api/audio/transcribe",
+            files={"uploaded_file": audio_file},
+            data={"lang": "pl"},
+            headers=auth_headers
+        )
+
+        json = response.json()
+        assert response.status_code == 200
+        assert "result" in json
+        assert "Liduch" in json["result"]
 
 
 @pytest.mark.asyncio
@@ -94,11 +107,10 @@ async def test_audio_transcribe_invalid_file(auth_headers):
             data={"lang": "pl"},
             headers=auth_headers
         )
-        
+
         json = response.json()
         assert response.status_code == 400
         assert "error" in json
-        assert json["result"] == False
         assert "Invalid file type. Only audio files are accepted" in json["error"]
 
 @pytest.mark.asyncio
@@ -112,7 +124,7 @@ async def test_given_audio_file_expect_non_empty_summary(auth_token):
                 data={"type": "tldr", "lang": "pl"},
                 headers={"Authorization": f"Bearer {auth_token}"}
             )
-            
+
             assert response.status_code == 200
             assert "summary" in response.json()
             assert "Fallout 4" in response.json()["summary"]
@@ -125,10 +137,10 @@ async def test_given_url_expect_non_empty_transcription(auth_token):
             json={"url": SHORT_YT_VIDEO, "lang": "en"},
             headers={"Authorization": f"Bearer {auth_token}"}
         )
-        
+
         assert response.status_code == 200
-        assert "transcription" in response.json()
-        result = response.json()["transcription"]
+        assert "result" in response.json()
+        result = response.json()["result"]
         assert "liberal" in result
         assert "chains" in result
 
@@ -140,10 +152,45 @@ async def test_given_url_expect_non_empty_summary(auth_token):
             json={"url": SHORT_YT_VIDEO, "type": "tldr", "lang": "pl"},
             headers={"Authorization": f"Bearer {auth_token}"}
         )
-        
+
         assert response.status_code == 200
         assert "summary" in response.json()
         assert response.json()["summary"] != ""
+
+
+@pytest.mark.asyncio
+async def test_summarize_plain_text(auth_token):
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
+        response = await ac.post(
+            "/api/youtube/summarize",
+            json={"url": SHORT_YT_VIDEO, "type": "tldr", "lang": "pl"},
+            headers={
+                "Authorization": f"Bearer {auth_token}",
+                "Accept": "text/plain"
+            }
+        )
+
+        assert response.status_code == 200
+        assert response.text != ""
+
+
+@pytest.mark.asyncio
+async def test_summarize_file_download(auth_token):
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
+        response = await ac.post(
+            "/api/youtube/summarize",
+            json={"url": SHORT_YT_VIDEO, "type": "tldr", "lang": "pl"},
+            headers={
+                "Authorization": f"Bearer {auth_token}",
+                "Accept": "text/markdown"
+            }
+        )
+
+        assert response.status_code == 200
+        assert "text/markdown" in response.headers["content-type"]
+        assert response.headers["content-disposition"] == 'attachment; filename="Nie_ma_roz.md"'
+        assert int(response.headers["content-length"]) > 0
+
 
 def teardown_module(module):
     """

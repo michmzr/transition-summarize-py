@@ -1,0 +1,2564 @@
+1
+00:00:00,000 --> 00:00:15,120
+Okay, hi everyone, I guess we can begin.
+
+2
+00:00:15,120 --> 00:00:16,120
+Can you hear me?
+
+3
+00:00:16,120 --> 00:00:17,120
+I think you can.
+
+4
+00:00:17,120 --> 00:00:18,120
+Yeah, my name is Alina.
+
+5
+00:00:18,120 --> 00:00:20,040
+I'm very happy to be back here.
+
+6
+00:00:20,040 --> 00:00:24,000
+I love DevOps Belgium, and I specifically love those tools in action sessions where
+
+7
+00:00:24,000 --> 00:00:29,080
+you have little time, so minimal slides, minimal chit-chatting, straight to the code.
+
+8
+00:00:29,080 --> 00:00:33,259
+So thank you for coming, and in this session today we will talk about GraalVM, native image,
+
+9
+00:00:33,259 --> 00:00:36,119
+and all the things you need to know about it to use it in production.
+
+10
+00:00:36,119 --> 00:00:40,560
+So how do you build applications, how do you use libraries, how do you monitor them, everything
+
+11
+00:00:40,560 --> 00:00:43,919
+you might want to know for using native image.
+
+12
+00:00:43,919 --> 00:00:47,320
+So let's go, and with that I will sit down if that's okay with you.
+
+13
+00:00:47,320 --> 00:00:52,160
+I could have said that this is for coding, but honestly I would just be a bit more comfortable.
+
+14
+00:00:52,160 --> 00:00:56,759
+So let's go, and this is our little plan for today.
+
+15
+00:00:57,119 --> 00:01:04,160
+Let me just close others, and close this, okay, good.
+
+16
+00:01:04,160 --> 00:01:08,559
+So this is a session about GraalVM and about native image specifically, and I hope that
+
+17
+00:01:08,559 --> 00:01:12,440
+at this point I don't need to talk any more about GraalVM and what it is and what it can
+
+18
+00:01:12,440 --> 00:01:16,000
+do for you, but just a super quick 30-second recap.
+
+19
+00:01:16,000 --> 00:01:20,519
+So GraalVM is a JDK like any other JDK of your choice, if you are not really taking
+
+20
+00:01:20,519 --> 00:01:24,360
+anything away from the JDK, we are just adding things on top.
+
+21
+00:01:24,360 --> 00:01:27,720
+So one thing we have added is the GraalVM JIT compiler, and it's a very good highly
+
+22
+00:01:27,720 --> 00:01:33,400
+optimizing compiler and alternative to C2, and many applications will see performance
+
+23
+00:01:33,400 --> 00:01:39,559
+benefits somewhere around 10, 15% from just moving to Graal as a JIT compiler just by
+
+24
+00:01:39,559 --> 00:01:43,599
+using GraalVM as your JDK distribution.
+
+25
+00:01:43,599 --> 00:01:49,000
+Now another part that we have added to JDK is an ability to execute other languages,
+
+26
+00:01:49,120 --> 00:01:54,599
+that are not traditionally JVM languages on top of the JVM and within Java applications.
+
+27
+00:01:54,599 --> 00:01:58,320
+So one thing you can do with GraalVM is you can extend your Java application with languages
+
+28
+00:01:58,320 --> 00:02:03,959
+such as JavaScript, Python, WebAssembly, and what's even better now, we improved the developer
+
+29
+00:02:03,959 --> 00:02:08,320
+experience, so all you need to do to bring those languages to your Java application is
+
+30
+00:02:08,320 --> 00:02:12,039
+just bring in two main dependencies and you are good to go.
+
+31
+00:02:12,039 --> 00:02:16,679
+But that is a story for another time, today we are talking about all things native image,
+
+32
+00:02:16,679 --> 00:02:21,080
+and native image is this ahead-of-time capability in GraalVM where we can take your application
+
+33
+00:02:21,080 --> 00:02:24,600
+and compile it ahead of time into a native executable.
+
+34
+00:02:24,600 --> 00:02:29,479
+And the reason to do so is because you will no longer need a JVM once you deploy the application,
+
+35
+00:02:29,479 --> 00:02:32,000
+it will be fully functional on its own.
+
+36
+00:02:32,000 --> 00:02:37,440
+And the reason to do so would be because you will eliminate many of the startup and resources
+
+37
+00:02:37,440 --> 00:02:42,179
+usage potential challenges that you can have with a larger Java application.
+
+38
+00:02:42,179 --> 00:02:46,160
+So because we are optimizing and compiling your application ahead of time, we are doing
+
+39
+00:02:46,160 --> 00:02:50,360
+that work once and then you can start fast every single time.
+
+40
+00:02:50,360 --> 00:02:53,559
+So this is the startup, because you compile the application ahead of time, but there are
+
+41
+00:02:53,559 --> 00:02:57,639
+also other benefits and ones that I would argue are more important than startup, one
+
+42
+00:02:57,639 --> 00:02:59,960
+of such benefits is memory usage.
+
+43
+00:02:59,960 --> 00:03:03,880
+So if you want to run your application using less memory, on average about I would say
+
+44
+00:03:03,880 --> 00:03:09,520
+3x, 5x less than on the JVM, native image can do it for you because we no longer need
+
+45
+00:03:09,520 --> 00:03:12,839
+to load classes, interpret, compile, et cetera.
+
+46
+00:03:12,839 --> 00:03:18,039
+So that's one benefit, startup memory usage, also you will get much more compact images
+
+47
+00:03:18,039 --> 00:03:23,399
+and also native image gives you an additional security layer because there are way less
+
+48
+00:03:23,399 --> 00:03:28,039
+dynamic features or they are restricted and only allowed by the allowed list.
+
+49
+00:03:28,039 --> 00:03:31,259
+And also native image eliminates all the code that you are not using.
+
+50
+00:03:31,259 --> 00:03:35,960
+So the idea is to compile the application once and then deploy it fast as many times
+
+51
+00:03:35,960 --> 00:03:37,839
+as you would need.
+
+52
+00:03:37,839 --> 00:03:41,639
+So that was a very brief intro, let's see it in action.
+
+53
+00:03:41,639 --> 00:03:47,080
+I want to start with this first demo, which is a dictionary application, and I will run
+
+54
+00:03:47,080 --> 00:03:52,520
+it first and then we will compile it and as it compiles we will see what it actually does.
+
+55
+00:03:52,520 --> 00:03:57,160
+So I mentioned that GraalVM is a normal Java, right, so I can check it with my Java version
+
+56
+00:03:57,160 --> 00:04:03,479
+and here I'm on Oracle GraalVM for JDK 23, so this is the latest release version of GraalVM,
+
+57
+00:04:03,479 --> 00:04:08,360
+the least released up to date, a couple weeks ago we released this along with Java 23, so
+
+58
+00:04:08,360 --> 00:04:10,720
+this is the latest version at the moment.
+
+59
+00:04:10,720 --> 00:04:14,039
+What's interesting, on Thursday I have another session and there I will be using GraalVM
+
+60
+00:04:14,039 --> 00:04:19,760
+for JDK 24, so unreleased version, early access build, but at the moment this is the latest
+
+61
+00:04:19,760 --> 00:04:22,320
+production grade build of GraalVM.
+
+62
+00:04:22,320 --> 00:04:27,200
+So let's run our app and let's see what it does and what are the fun things we can do
+
+63
+00:04:27,200 --> 00:04:28,640
+with it.
+
+64
+00:04:28,640 --> 00:04:33,760
+So as you could have guessed by now, we will be looking at a Spring application here and
+
+65
+00:04:33,760 --> 00:04:40,480
+it starts and it starts in something like 2.7, I would say almost 3 seconds.
+
+66
+00:04:41,239 --> 00:04:47,920
+So let's go to our endpoint, this is at localhost and the endpoint is translations and I'm wondering
+
+67
+00:04:47,920 --> 00:04:52,839
+if somebody in the room can tell me what is this beautiful language?
+
+68
+00:04:52,839 --> 00:04:55,079
+You can guess.
+
+69
+00:04:55,079 --> 00:05:01,239
+Not German, not exactly, Swiss German, yes, so if you like me, like languages or if you
+
+70
+00:05:01,239 --> 00:05:05,839
+speak high German, I encourage you to look into Swiss German, as you can see, it's very
+
+71
+00:05:05,839 --> 00:05:06,839
+interesting.
+
+72
+00:05:06,839 --> 00:05:10,679
+So one word might be bussy, which is cat, or rather kitten, and another fun word is
+
+73
+00:05:10,679 --> 00:05:15,440
+bootly, which is floating down river on inflatable boards and drinking beers.
+
+74
+00:05:15,440 --> 00:05:18,799
+So a very fun language, I encourage you to check it out.
+
+75
+00:05:18,799 --> 00:05:22,799
+But you know, our application starts and runs, but where is the fun in that?
+
+76
+00:05:22,799 --> 00:05:23,799
+Let's make it native.
+
+77
+00:05:23,799 --> 00:05:29,600
+So let's go ahead and my compilation command for this, as it's a Spring application, is
+
+78
+00:05:29,600 --> 00:05:35,799
+maven p native native compile, and now we will use the compilation time to take a look
+
+79
+00:05:35,799 --> 00:05:38,279
+at our application and what is going on there.
+
+80
+00:05:38,279 --> 00:05:43,200
+So as you've seen already, this is a Spring app, this is my main class, and I have a bunch
+
+81
+00:05:43,200 --> 00:05:49,880
+of things here, this is my controller that exposes the endpoint, gets us back our translations,
+
+82
+00:05:49,880 --> 00:05:56,440
+I have translation service that interacts with it, and I have translation repository,
+
+83
+00:05:56,440 --> 00:06:03,000
+and then the actual data is being here, yeah, so this is our data, and this is using under
+
+84
+00:06:03,000 --> 00:06:08,239
+the hood H2, so we are reading our translations from the database.
+
+85
+00:06:08,239 --> 00:06:13,079
+And in terms of the project structure, here is my pom XML, let me just remove this.
+
+86
+00:06:13,079 --> 00:06:18,600
+So what we have here is our Spring boot, in terms of dependencies, we have our Spring
+
+87
+00:06:18,600 --> 00:06:24,160
+web, we have dependencies for working with data, in our case, it's H2, and the part that
+
+88
+00:06:24,160 --> 00:06:28,799
+is interesting for me is native maven plugin, so this is the part that is responsible for
+
+89
+00:06:28,799 --> 00:06:33,839
+native compilation, and this plugin, as you can tell, is coming from our team, so if you
+
+90
+00:06:33,839 --> 00:06:38,399
+go to start at Spring.io, and you add the native image as a dependency, what the Spring
+
+91
+00:06:38,399 --> 00:06:42,440
+team will do for you, they will include this plugin, but the plugin is originally developed
+
+92
+00:06:42,440 --> 00:06:47,519
+by our team, and this is a very nice unified interface for working with native image.
+
+93
+00:06:47,519 --> 00:06:51,959
+So from here, you can configure all the things you would like to do with your app, for example,
+
+94
+00:06:51,959 --> 00:06:57,119
+here I'm doing dash OB, this is a quick build mode, so I'm saying, hey, I'm not deploying
+
+95
+00:06:57,160 --> 00:07:02,720
+my application yet, I'm just still developing it, so please give me my build back fast,
+
+96
+00:07:02,720 --> 00:07:07,399
+so I can iterate faster, but this will not optimize for production, because we are not
+
+97
+00:07:07,399 --> 00:07:11,279
+deploying to production yet, so I'm just saying I want faster feedback loops, but I don't
+
+98
+00:07:11,279 --> 00:07:16,600
+care about optimization at this phase yet, so this is one way to do it.
+
+99
+00:07:16,600 --> 00:07:19,399
+And normally when I'm compiling this application and I'm showing something like this on the
+
+100
+00:07:19,399 --> 00:07:24,519
+stage, people come to me and they say, Alina, oh, my God, this is taking so long, I don't
+
+101
+00:07:24,519 --> 00:07:28,559
+have that kind of time, why does this application build have to be this long?
+
+102
+00:07:28,559 --> 00:07:33,920
+But check this out, my application was maybe five classes and let's say database, but still,
+
+103
+00:07:33,920 --> 00:07:39,200
+and what native image discovered about it, as we are looking at this analysis phase underneath,
+
+104
+00:07:39,200 --> 00:07:43,640
+so coming from the JDK, from my framework, from my dependencies, what native image found
+
+105
+00:07:43,640 --> 00:07:49,320
+is reachable is 200,000 classes, even in this fairly trivial app, because as we know, Java
+
+106
+00:07:49,320 --> 00:07:54,119
+projects give us good productivity, give us a lot of amazing features, but it comes
+
+107
+00:07:54,119 --> 00:07:58,079
+at a cost that underneath there is a lot of complexity in our projects.
+
+108
+00:07:58,079 --> 00:08:02,119
+So I would say that this compilation time, how long was it, one minute and 40 seconds
+
+109
+00:08:02,119 --> 00:08:07,559
+for this complete web app with the database access, I would say this is still acceptable.
+
+110
+00:08:07,559 --> 00:08:12,640
+But let's go ahead and run it, so target demo, and yeah, what I actually need is this demo
+
+111
+00:08:12,640 --> 00:08:18,760
+native executable, and I have some additional files generated for me courtesy of AWT.
+
+112
+00:08:18,760 --> 00:08:23,959
+But what I need is actually this demo application, so if we go back here and we hit our endpoint
+
+113
+00:08:23,959 --> 00:08:28,720
+again, it does the same thing, here are my translations.
+
+114
+00:08:28,720 --> 00:08:34,760
+So as it runs, we can also do a quick, not even benchmarking, but try to assess how many
+
+115
+00:08:34,760 --> 00:08:39,960
+resources it's using, for that, I will do HTOP, and I will look for my application,
+
+116
+00:08:39,960 --> 00:08:44,960
+so granted it's idle, but we will do a lot of testing later on in the talk, so in this
+
+117
+00:08:44,960 --> 00:08:53,960
+idle state, it's using 136 megs of RAM, which I would say it's not too bad for a fully blown
+
+118
+00:08:53,960 --> 00:08:56,200
+web screen application.
+
+119
+00:08:56,200 --> 00:09:00,200
+And why I'm talking about this is because I think along with startup memory usage is
+
+120
+00:09:00,200 --> 00:09:04,880
+indeed important, because you can deploy, as I like how Josh Long and James Ward talked
+
+121
+00:09:04,880 --> 00:09:11,280
+about this two years ago, so imagine that for application that uses 100 RAM of memory
+
+122
+00:09:11,280 --> 00:09:16,080
+as a native executable, you can maybe deploy ten such applications for the same footprint
+
+123
+00:09:16,080 --> 00:09:20,719
+that you will deploy your normal big Java application with large heap settings.
+
+124
+00:09:20,719 --> 00:09:24,799
+So I think those memory savings are really important aspect of native image, maybe even
+
+125
+00:09:24,799 --> 00:09:28,080
+more important than startup time.
+
+126
+00:09:28,080 --> 00:09:29,080
+So okay.
+
+127
+00:09:29,080 --> 00:09:34,440
+Let's say we moved our application to native, it was fairly easy, in my case, how this application
+
+128
+00:09:34,440 --> 00:09:40,000
+came to be is just I went to startupsprint.io, I added all my dependencies, and it worked.
+
+129
+00:09:40,000 --> 00:09:42,640
+And in general, it will be the case that if you are starting a new app and you are
+
+130
+00:09:42,640 --> 00:09:48,520
+working with one of the frameworks that work with native image, so if you're starting a
+
+131
+00:09:48,520 --> 00:09:51,440
+new app, things will be fairly easy for you.
+
+132
+00:09:51,440 --> 00:09:55,840
+Now what to do if you want to move an existing application to native image, and I don't want
+
+133
+00:09:55,840 --> 00:09:59,799
+this to be a sales talk, so I will not say that every single application will work at
+
+134
+00:09:59,799 --> 00:10:00,080
+a level.
+
+135
+00:10:00,080 --> 00:10:01,740
+like a charm out of the box.
+
+136
+00:10:01,740 --> 00:10:03,540
+If you want to move an existing application,
+
+137
+00:10:03,540 --> 00:10:05,020
+there could be some challenges.
+
+138
+00:10:05,020 --> 00:10:07,020
+If you want to learn more about those challenges,
+
+139
+00:10:07,020 --> 00:10:09,380
+Daniel and I are doing a session on Wednesday.
+
+140
+00:10:09,380 --> 00:10:11,980
+But I want to very briefly walk you through it in case
+
+141
+00:10:11,980 --> 00:10:14,020
+you cannot make it to our session.
+
+142
+00:10:14,020 --> 00:10:15,680
+So what could be a source of challenges,
+
+143
+00:10:15,680 --> 00:10:18,920
+and how do you use libraries in the native image mode?
+
+144
+00:10:18,920 --> 00:10:21,180
+The source of challenges, there could be reflection
+
+145
+00:10:21,180 --> 00:10:23,340
+and those more dynamic Java features,
+
+146
+00:10:23,340 --> 00:10:26,299
+such as serialization, resources, proxies, JNI, et
+
+147
+00:10:26,299 --> 00:10:26,799
+cetera.
+
+148
+00:10:26,799 --> 00:10:29,379
+And the reason why this might be challenging for native image
+
+149
+00:10:29,379 --> 00:10:31,539
+is because native image compiles the application
+
+150
+00:10:31,539 --> 00:10:34,620
+ahead of time under a closed world assumption.
+
+151
+00:10:34,620 --> 00:10:37,060
+And this means that runtime hasn't happened yet.
+
+152
+00:10:37,060 --> 00:10:39,460
+So everything there is to know about your application
+
+153
+00:10:39,460 --> 00:10:42,539
+needs to be known when you build it.
+
+154
+00:10:42,539 --> 00:10:44,539
+And this isn't a limitation of native image
+
+155
+00:10:44,539 --> 00:10:48,339
+as much as it is a limitation of general AOT versus JIT.
+
+156
+00:10:48,339 --> 00:10:51,699
+So you're compiling things ahead of time that need to be known.
+
+157
+00:10:51,699 --> 00:10:54,379
+Now, native image can do pretty much anything for you
+
+158
+00:10:54,379 --> 00:10:56,859
+as long as you tell it what exactly needs to be known
+
+159
+00:10:56,859 --> 00:10:59,019
+and happening at build time.
+
+160
+00:10:59,179 --> 00:11:00,740
+So how do you make reflection work,
+
+161
+00:11:00,740 --> 00:11:03,300
+and how do you make all those dynamic Java features work
+
+162
+00:11:03,300 --> 00:11:04,940
+with native image?
+
+163
+00:11:04,940 --> 00:11:07,740
+I will go here through some of the possible scenarios.
+
+164
+00:11:07,740 --> 00:11:08,740
+I will try to be brief.
+
+165
+00:11:08,740 --> 00:11:09,940
+Let's see if that works out.
+
+166
+00:11:09,940 --> 00:11:12,020
+But I will go here through some of those scenarios
+
+167
+00:11:12,020 --> 00:11:13,859
+how libraries can work with native image.
+
+168
+00:11:13,859 --> 00:11:15,779
+And each of those bullet points, it's
+
+169
+00:11:15,779 --> 00:11:19,380
+a complete answer to making a library work with native image,
+
+170
+00:11:19,380 --> 00:11:21,099
+going from the best case scenario
+
+171
+00:11:21,099 --> 00:11:24,260
+to maybe a less fortunate scenario.
+
+172
+00:11:24,260 --> 00:11:26,940
+So one is native image and libraries
+
+173
+00:11:26,940 --> 00:11:30,300
+can be friendly towards native image out of the box.
+
+174
+00:11:30,300 --> 00:11:32,740
+So this is a new trend, but we see more of this lately,
+
+175
+00:11:32,740 --> 00:11:35,260
+especially on social media, where maintainers
+
+176
+00:11:35,260 --> 00:11:36,940
+write libraries, and they write them
+
+177
+00:11:36,940 --> 00:11:39,660
+in a way that is more friendly towards native image.
+
+178
+00:11:39,660 --> 00:11:41,660
+So maybe using less reflection, doing
+
+179
+00:11:41,660 --> 00:11:44,060
+more of functional-style programming.
+
+180
+00:11:44,060 --> 00:11:47,139
+So those will just work out of the box with native image.
+
+181
+00:11:47,139 --> 00:11:50,260
+But also, we realized that there were many libraries out there
+
+182
+00:11:50,260 --> 00:11:53,060
+long before GraalVM and native image came to be.
+
+183
+00:11:53,060 --> 00:11:55,340
+So how can those libraries that existed before
+
+184
+00:11:55,340 --> 00:11:57,179
+work with native image?
+
+185
+00:11:57,179 --> 00:11:59,700
+And as I mentioned, native image can do anything for you,
+
+186
+00:11:59,700 --> 00:12:01,819
+as long as you give it configuration files
+
+187
+00:12:01,819 --> 00:12:03,580
+to instruct it what exactly needs
+
+188
+00:12:03,580 --> 00:12:06,300
+to happen in terms of, for example, reflection.
+
+189
+00:12:06,300 --> 00:12:09,380
+Those config files come in the format of JSON.
+
+190
+00:12:09,380 --> 00:12:11,219
+So you need to instruct native image, please
+
+191
+00:12:11,219 --> 00:12:13,779
+make those things visible and build an application that
+
+192
+00:12:13,779 --> 00:12:17,339
+is aware of those classes being accessed reflectively.
+
+193
+00:12:17,339 --> 00:12:19,859
+So how can that config come to be?
+
+194
+00:12:19,859 --> 00:12:23,059
+The best scenario is if a library that you want to use
+
+195
+00:12:23,059 --> 00:12:24,740
+includes config for native image
+
+196
+00:12:24,740 --> 00:12:26,460
+within the library itself.
+
+197
+00:12:26,460 --> 00:12:27,820
+What I like about the application
+
+198
+00:12:27,820 --> 00:12:30,699
+that I showed before, the dictionary using H2,
+
+199
+00:12:30,699 --> 00:12:32,740
+is that in the past, I was showing a demo where
+
+200
+00:12:32,740 --> 00:12:35,820
+I was trying to read and write data from the H2 database.
+
+201
+00:12:35,820 --> 00:12:37,540
+And it was compiling successfully,
+
+202
+00:12:37,540 --> 00:12:39,580
+but then it was blowing up at runtime
+
+203
+00:12:39,580 --> 00:12:42,460
+because it could not figure out how to work with reflection.
+
+204
+00:12:42,460 --> 00:12:44,900
+Now, that is not the case anymore.
+
+205
+00:12:44,900 --> 00:12:47,380
+Things just work now because H2 itself
+
+206
+00:12:47,380 --> 00:12:50,979
+ships with config within the H2 library itself.
+
+207
+00:12:50,979 --> 00:12:54,580
+And on top of that, we also have our own config for H2.
+
+208
+00:12:54,580 --> 00:12:56,180
+So if your library doesn't include
+
+209
+00:12:56,180 --> 00:12:58,380
+configuration for native image, the next best thing
+
+210
+00:12:58,380 --> 00:13:00,580
+that can happen, you would think that there
+
+211
+00:13:00,580 --> 00:13:03,460
+can exist something similar like Maven Central,
+
+212
+00:13:03,460 --> 00:13:05,699
+but for native image configuration.
+
+213
+00:13:05,699 --> 00:13:07,139
+And we had the exact same idea.
+
+214
+00:13:07,139 --> 00:13:09,139
+And now we have this repository on GitHub
+
+215
+00:13:09,139 --> 00:13:12,059
+called crawlvm-reachability-metadata-repository,
+
+216
+00:13:12,059 --> 00:13:15,100
+which is a long list of folders for many popular libraries
+
+217
+00:13:15,100 --> 00:13:18,660
+and frameworks that includes config for all those libraries
+
+218
+00:13:18,660 --> 00:13:20,100
+and their versions.
+
+219
+00:13:20,100 --> 00:13:22,300
+And the way to consume this is really automatic,
+
+220
+00:13:22,300 --> 00:13:25,100
+because if you are using our native Maven or Gradle
+
+221
+00:13:25,100 --> 00:13:27,619
+plugins, the ones that I showed you before,
+
+222
+00:13:27,619 --> 00:13:29,300
+they will just go and pull config
+
+223
+00:13:29,300 --> 00:13:31,339
+from this centralized place for you
+
+224
+00:13:31,339 --> 00:13:33,460
+without you having to do anything.
+
+225
+00:13:33,460 --> 00:13:36,499
+So if you are using a more or less mainstream Java library,
+
+226
+00:13:36,499 --> 00:13:38,139
+chances are that things will just
+
+227
+00:13:38,139 --> 00:13:40,660
+work for you out of the box.
+
+228
+00:13:40,660 --> 00:13:43,139
+But let's say you want to use a library that doesn't
+
+229
+00:13:43,139 --> 00:13:44,619
+have config for native image.
+
+230
+00:13:44,619 --> 00:13:46,779
+Maybe they haven't added the config yet,
+
+231
+00:13:46,779 --> 00:13:49,820
+or maybe your company has some internal library SDK
+
+232
+00:13:49,820 --> 00:13:52,059
+that is not compatible with native image.
+
+233
+00:13:52,059 --> 00:13:53,940
+So what to do in that case?
+
+234
+00:13:53,940 --> 00:13:56,619
+Now, there could be a few solutions to that.
+
+235
+00:13:56,619 --> 00:13:59,419
+One is if, like in my other demo,
+
+236
+00:13:59,419 --> 00:14:01,259
+if you are on a version of a framework that
+
+237
+00:14:01,259 --> 00:14:03,180
+is compatible with native image and offers
+
+238
+00:14:03,180 --> 00:14:05,900
+some features for native image, such as, for example,
+
+239
+00:14:05,900 --> 00:14:09,619
+here I am on Spring Boot 3.4.
+
+240
+00:14:09,619 --> 00:14:13,979
+But anything above Spring Boot 3.0 and higher would work.
+
+241
+00:14:13,979 --> 00:14:17,539
+So what you can do is you can generate hints programmatically.
+
+242
+00:14:17,539 --> 00:14:19,620
+So you can instruct Spring to generate
+
+243
+00:14:19,620 --> 00:14:22,099
+hints for those places in your application
+
+244
+00:14:22,099 --> 00:14:23,699
+where reflection will occur.
+
+245
+00:14:23,699 --> 00:14:26,379
+And Spring will solve this for you.
+
+246
+00:14:26,379 --> 00:14:28,500
+So let's see this in action.
+
+247
+00:14:28,500 --> 00:14:31,300
+And for that, I have this app.
+
+248
+00:14:31,300 --> 00:14:35,139
+And here I have my little reflection controller.
+
+249
+00:14:35,139 --> 00:14:37,139
+So one thing that I want to mention here
+
+250
+00:14:37,139 --> 00:14:41,020
+is you can say that I'm trying to make a reflective call
+
+251
+00:14:41,020 --> 00:14:44,939
+to this message field in the message class over here.
+
+252
+00:14:44,939 --> 00:14:47,060
+But I'm doing so, as you can tell,
+
+253
+00:14:47,060 --> 00:14:50,419
+in a less maybe predictable way, or maybe not in the way
+
+254
+00:14:50,419 --> 00:14:51,460
+you would write it.
+
+255
+00:14:51,460 --> 00:14:54,020
+And that is to try and outsmart native image.
+
+256
+00:14:54,020 --> 00:14:56,900
+Because a more predictable, more reasonable, more sane
+
+257
+00:14:56,900 --> 00:15:00,220
+reflection call, native image can figure out out of the box.
+
+258
+00:15:00,220 --> 00:15:03,099
+It does have limited but support for reflection out of the box.
+
+259
+00:15:03,099 --> 00:15:05,699
+That's why we are trying to go ahead and outsmart native image
+
+260
+00:15:05,699 --> 00:15:06,699
+here.
+
+261
+00:15:06,699 --> 00:15:09,699
+So to make this work and to make this visible for native image,
+
+262
+00:15:09,699 --> 00:15:13,699
+what I can do, because I have support from Spring for me,
+
+263
+00:15:13,699 --> 00:15:16,379
+I can do register reflection for binding.
+
+264
+00:15:16,379 --> 00:15:18,259
+And I have my import added.
+
+265
+00:15:18,259 --> 00:15:20,979
+So now I can say, hey, my reflection
+
+266
+00:15:20,979 --> 00:15:23,740
+will occur here in the message class.
+
+267
+00:15:23,740 --> 00:15:26,340
+Please generate hints for me.
+
+268
+00:15:26,340 --> 00:15:28,780
+And I didn't build it before to try and save us
+
+269
+00:15:28,780 --> 00:15:30,500
+40 seconds of time.
+
+270
+00:15:30,500 --> 00:15:32,500
+But let's go ahead and build this now
+
+271
+00:15:32,500 --> 00:15:35,020
+and see if this will work.
+
+272
+00:15:35,020 --> 00:15:36,939
+So this is Spring Boot.
+
+273
+00:15:36,939 --> 00:15:40,340
+And we are again doing native, native, compile.
+
+274
+00:15:41,340 --> 00:15:41,819
+OK.
+
+275
+00:15:41,819 --> 00:15:43,020
+So our build has started.
+
+276
+00:15:43,020 --> 00:15:45,340
+As it started, I want to show you two more things related
+
+277
+00:15:45,340 --> 00:15:48,220
+to reflection and how you can programmatically generate
+
+278
+00:15:48,220 --> 00:15:50,139
+config files for native image.
+
+279
+00:15:50,139 --> 00:15:51,460
+So this is one way to do it.
+
+280
+00:15:51,460 --> 00:15:54,139
+And this is the one that existed for a while in Spring.
+
+281
+00:15:54,139 --> 00:15:55,620
+Now, in the upcoming release, they
+
+282
+00:15:55,620 --> 00:15:57,259
+are also introducing a new way.
+
+283
+00:15:57,259 --> 00:16:01,020
+So here I'm handling reflection and writing the annotation
+
+284
+00:16:01,020 --> 00:16:04,979
+on the caller side, so where my reflection call originates.
+
+285
+00:16:04,979 --> 00:16:06,979
+But they are also experimenting with a new way
+
+286
+00:16:06,979 --> 00:16:08,900
+where you can add a reflection to the call.
+
+287
+00:16:08,900 --> 00:16:10,460
+They are experimenting with a new way
+
+288
+00:16:10,460 --> 00:16:12,979
+where you can annotate my callee side,
+
+289
+00:16:12,979 --> 00:16:15,379
+so where the reflection call needs to end up.
+
+290
+00:16:15,379 --> 00:16:18,460
+And I can say here reflective and add reflective scan
+
+291
+00:16:18,460 --> 00:16:19,740
+on my main method.
+
+292
+00:16:19,740 --> 00:16:22,180
+And this will make this class or field visible
+
+293
+00:16:22,180 --> 00:16:25,539
+in terms of reflection to all the possible places in my app
+
+294
+00:16:25,539 --> 00:16:28,259
+that might call this method or this field.
+
+295
+00:16:28,259 --> 00:16:29,580
+So you can decide for yourself.
+
+296
+00:16:29,580 --> 00:16:32,259
+Either you want to do it where your call originates
+
+297
+00:16:32,259 --> 00:16:34,939
+or where it's supposed to end up.
+
+298
+00:16:34,939 --> 00:16:37,060
+Now, this is not even the complete story yet.
+
+299
+00:16:37,180 --> 00:16:39,379
+Spring offers you yet another way
+
+300
+00:16:39,379 --> 00:16:42,979
+to make reflection or resources or serialization work.
+
+301
+00:16:42,979 --> 00:16:46,379
+And they have this nice runtime hints registrar API
+
+302
+00:16:46,379 --> 00:16:48,300
+where I can say, hey, I want to access
+
+303
+00:16:48,300 --> 00:16:50,020
+this resource at runtime.
+
+304
+00:16:50,020 --> 00:16:52,259
+Please make it available to native image.
+
+305
+00:16:52,259 --> 00:16:54,659
+Please generate hints for resources.
+
+306
+00:16:54,659 --> 00:16:57,780
+And this is a nice flexible API because along with resources,
+
+307
+00:16:57,780 --> 00:17:03,659
+I can do something like hints.reflection or, yeah,
+
+308
+00:17:03,659 --> 00:17:05,020
+reflection or GNI.
+
+309
+00:17:05,020 --> 00:17:08,259
+And it will also generate hints for those things.
+
+310
+00:17:08,259 --> 00:17:11,340
+So those are three possible ways to do so from Spring,
+
+311
+00:17:11,340 --> 00:17:13,379
+but also similar exists in other frameworks
+
+312
+00:17:13,379 --> 00:17:16,740
+when they can help generate files for native image.
+
+313
+00:17:16,740 --> 00:17:20,220
+Now that our build is complete, let's go ahead and run it.
+
+314
+00:17:20,220 --> 00:17:22,620
+So target demo.
+
+315
+00:17:22,620 --> 00:17:25,460
+And our endpoint that is responsible for reflection
+
+316
+00:17:25,460 --> 00:17:26,419
+is this one.
+
+317
+00:17:26,419 --> 00:17:28,859
+So we retrieved our message.
+
+318
+00:17:28,859 --> 00:17:31,699
+And in a similar fashion, we can do resource.
+
+319
+00:17:31,699 --> 00:17:35,939
+And we see that we can also load the resource.
+
+320
+00:17:35,939 --> 00:17:39,099
+So this was about making reflection
+
+321
+00:17:39,099 --> 00:17:42,460
+and other dynamic Java features work for your application
+
+322
+00:17:42,460 --> 00:17:44,180
+from a framework.
+
+323
+00:17:44,180 --> 00:17:46,580
+To finish this part, so you can generate hints
+
+324
+00:17:46,580 --> 00:17:48,979
+from your framework if you have framework support.
+
+325
+00:17:48,979 --> 00:17:50,900
+Now, let's say you want to use a library,
+
+326
+00:17:50,900 --> 00:17:52,740
+but you are on a version of a framework that
+
+327
+00:17:52,740 --> 00:17:54,139
+doesn't work with GraalVM.
+
+328
+00:17:54,139 --> 00:17:55,500
+The library doesn't have config.
+
+329
+00:17:55,500 --> 00:17:58,539
+Seems like you are out of luck and out of options.
+
+330
+00:17:58,539 --> 00:17:59,580
+Well, not just yet.
+
+331
+00:17:59,580 --> 00:18:02,740
+So if you don't have any support from your library on framework,
+
+332
+00:18:02,740 --> 00:18:04,460
+there is one more thing that you can do.
+
+333
+00:18:04,460 --> 00:18:07,500
+And that is you can use this tracing agent from native image.
+
+334
+00:18:07,500 --> 00:18:10,060
+So this is an agent that comes with native image, where
+
+335
+00:18:10,060 --> 00:18:11,819
+you can run your application on the JVM
+
+336
+00:18:11,819 --> 00:18:14,220
+with the agent attached to the process.
+
+337
+00:18:14,220 --> 00:18:17,419
+And you can show us, show the application what
+
+338
+00:18:17,419 --> 00:18:20,340
+it's supposed to be doing, apply relevant workload.
+
+339
+00:18:20,340 --> 00:18:22,819
+And then the agent will observe your application behavior,
+
+340
+00:18:22,819 --> 00:18:25,379
+in particular, all those things around reflection.
+
+341
+00:18:25,379 --> 00:18:27,340
+And it will output configuration files
+
+342
+00:18:27,340 --> 00:18:29,740
+that can native image pick up and automatically
+
+343
+00:18:29,740 --> 00:18:31,740
+resolve those calls for you.
+
+344
+00:18:31,740 --> 00:18:34,059
+So the agent will generate those files for you
+
+345
+00:18:34,059 --> 00:18:36,179
+in a semi-automatic way.
+
+346
+00:18:36,179 --> 00:18:38,340
+It will not always be complete, maybe.
+
+347
+00:18:38,340 --> 00:18:40,580
+Or maybe you need to apply really good workloads.
+
+348
+00:18:40,580 --> 00:18:43,780
+But this is a good way to do this JSON
+
+349
+00:18:43,780 --> 00:18:46,259
+writing in a semi-automatic way, rather than
+
+350
+00:18:46,259 --> 00:18:48,379
+writing the files yourself.
+
+351
+00:18:48,379 --> 00:18:51,739
+And then the last is, if you have this one small call that
+
+352
+00:18:51,739 --> 00:18:53,259
+just doesn't work with native image,
+
+353
+00:18:53,259 --> 00:18:54,980
+but you know exactly where it appears,
+
+354
+00:18:54,980 --> 00:18:56,780
+you can do so yourself manually.
+
+355
+00:18:56,780 --> 00:18:59,540
+You can just write this configuration file yourself
+
+356
+00:18:59,540 --> 00:19:01,660
+from a JSON format.
+
+357
+00:19:01,660 --> 00:19:04,580
+So this was maybe a bit too complicated and a lot of text.
+
+358
+00:19:04,580 --> 00:19:06,619
+But really, if you want to make libraries work
+
+359
+00:19:06,619 --> 00:19:08,499
+with scroll via native image, this
+
+360
+00:19:08,499 --> 00:19:10,360
+is the things you need to do.
+
+361
+00:19:10,360 --> 00:19:12,900
+And I hope, especially if you're starting a new application,
+
+362
+00:19:12,900 --> 00:19:15,499
+that you never need to go beyond those three points,
+
+363
+00:19:15,499 --> 00:19:17,699
+that either a library will ship a config,
+
+364
+00:19:17,699 --> 00:19:20,540
+or it will be available in our centralized repository,
+
+365
+00:19:20,540 --> 00:19:23,860
+especially for new applications.
+
+366
+00:19:23,860 --> 00:19:26,220
+So we were talking about writing applications
+
+367
+00:19:26,220 --> 00:19:28,020
+and using the libraries.
+
+368
+00:19:28,020 --> 00:19:29,660
+Now, let's talk about another thing.
+
+369
+00:19:29,660 --> 00:19:32,220
+And that is how you can optimize your native executables
+
+370
+00:19:32,220 --> 00:19:34,220
+with native image.
+
+371
+00:19:34,220 --> 00:19:37,499
+So there are many, many optimization levels
+
+372
+00:19:37,499 --> 00:19:39,259
+in native image that you can choose from.
+
+373
+00:19:39,259 --> 00:19:41,220
+And I feel like this is less known.
+
+374
+00:19:41,220 --> 00:19:43,020
+So maybe, if you want, you can take a photo
+
+375
+00:19:43,020 --> 00:19:44,420
+and you can look into this after.
+
+376
+00:19:44,420 --> 00:19:46,299
+But basically, you can set those flags
+
+377
+00:19:46,299 --> 00:19:48,980
+to set your preferable optimization
+
+378
+00:19:48,980 --> 00:19:50,619
+level in native image.
+
+379
+00:19:50,619 --> 00:19:55,100
+So the dash o zero is usually used for debugging purposes.
+
+380
+00:19:55,179 --> 00:19:57,220
+This is no optimizations at all.
+
+381
+00:19:57,220 --> 00:20:01,340
+Then one through three, this is optimization level.
+
+382
+00:20:01,340 --> 00:20:03,220
+as going from basic optimizations
+
+383
+00:20:03,220 --> 00:20:06,220
+through advanced to full optimizations.
+
+384
+00:20:06,220 --> 00:20:07,980
+Here I need to mention that Dash O3 is
+
+385
+00:20:07,980 --> 00:20:10,260
+available in Oracle Growl VM.
+
+386
+00:20:10,260 --> 00:20:12,640
+Now, Dash OB optimizes for build time.
+
+387
+00:20:12,640 --> 00:20:15,860
+This is what I was using in our dictionary application.
+
+388
+00:20:15,860 --> 00:20:19,139
+And then Dash OS optimizes for size.
+
+389
+00:20:19,139 --> 00:20:21,420
+Now, for me, this is not the most common concern,
+
+390
+00:20:21,420 --> 00:20:23,540
+like the size of my native executable.
+
+391
+00:20:23,540 --> 00:20:25,860
+But people in our community told us many times
+
+392
+00:20:25,860 --> 00:20:27,660
+they don't want to have something like this.
+
+393
+00:20:27,660 --> 00:20:30,260
+And in my measurements, again, I tried it
+
+394
+00:20:30,260 --> 00:20:31,500
+on a Spring Boot application.
+
+395
+00:20:31,500 --> 00:20:35,139
+It shaves off around 1 third of your application size.
+
+396
+00:20:35,139 --> 00:20:37,700
+So if you want to maybe have smaller binaries,
+
+397
+00:20:37,700 --> 00:20:40,099
+Dash OS would be the way to go.
+
+398
+00:20:40,099 --> 00:20:42,779
+Now, if you want to optimize for the best peak throughput,
+
+399
+00:20:42,779 --> 00:20:45,740
+and I hear this comment a lot about IoT and JIT
+
+400
+00:20:45,740 --> 00:20:48,540
+and how native image would now be as fast as JIT,
+
+401
+00:20:48,540 --> 00:20:51,459
+because JIT optimizes your application on the go.
+
+402
+00:20:51,459 --> 00:20:53,979
+Now, in general, it's an interesting theoretical
+
+403
+00:20:53,979 --> 00:20:57,420
+discussion whether or not IoT code can be as fast as JIT.
+
+404
+00:20:57,420 --> 00:20:59,959
+If you are curious, we can chat about it during the break.
+
+405
+00:20:59,959 --> 00:21:02,000
+I will be very happy to do so.
+
+406
+00:21:02,000 --> 00:21:03,799
+But here are optimization strategies
+
+407
+00:21:03,799 --> 00:21:06,359
+that you can use for the best peak throughput.
+
+408
+00:21:06,359 --> 00:21:09,479
+So one thing that you need, you definitely need PGO.
+
+409
+00:21:09,479 --> 00:21:11,560
+This is the flag that triggers our profile-guided
+
+410
+00:21:11,560 --> 00:21:12,799
+optimizations.
+
+411
+00:21:12,799 --> 00:21:14,299
+And the way this works is that you
+
+412
+00:21:14,299 --> 00:21:16,640
+can build an instrumented version of your native
+
+413
+00:21:16,640 --> 00:21:19,679
+executable, apply relevant workloads,
+
+414
+00:21:19,679 --> 00:21:21,560
+observe your application behavior,
+
+415
+00:21:21,560 --> 00:21:23,600
+and then after you shut down the application,
+
+416
+00:21:23,600 --> 00:21:27,000
+it will produce profiles file that you can then feed,
+
+417
+00:21:27,000 --> 00:21:29,119
+or rather automatically pick up when
+
+418
+00:21:29,160 --> 00:21:31,359
+you build your native image for production.
+
+419
+00:21:31,359 --> 00:21:34,479
+And this way, we have access to what your application will
+
+420
+00:21:34,479 --> 00:21:36,640
+do at runtime, and specifically, which
+
+421
+00:21:36,640 --> 00:21:39,560
+parts of your application would be more hot.
+
+422
+00:21:39,560 --> 00:21:41,359
+Now, here people often tell me, but you
+
+423
+00:21:41,359 --> 00:21:43,160
+know the JVM profile is on the go.
+
+424
+00:21:43,160 --> 00:21:46,280
+It always adapts to what your application is doing.
+
+425
+00:21:46,280 --> 00:21:48,679
+That is true, but what is also true
+
+426
+00:21:48,679 --> 00:21:52,880
+is that a lot of profiling the JVM does during startup,
+
+427
+00:21:52,880 --> 00:21:55,759
+and then it still observes and profiles your application,
+
+428
+00:21:55,759 --> 00:21:58,079
+but many of those key assumptions
+
+429
+00:21:58,079 --> 00:21:59,840
+are made during the startup.
+
+430
+00:21:59,840 --> 00:22:01,560
+While native image, even though it
+
+431
+00:22:01,560 --> 00:22:04,280
+doesn't have access to the runtime information of your app,
+
+432
+00:22:04,280 --> 00:22:07,960
+it indeed instead has access to this closed world
+
+433
+00:22:07,960 --> 00:22:09,599
+of your application, where everything
+
+434
+00:22:09,599 --> 00:22:12,080
+there is to know about your app is already known.
+
+435
+00:22:12,080 --> 00:22:14,720
+So I would say that native image does a different kind
+
+436
+00:22:14,720 --> 00:22:18,759
+of profiling, but it also can give you good peak throughput.
+
+437
+00:22:18,759 --> 00:22:20,679
+In terms of other performance optimizations,
+
+438
+00:22:20,679 --> 00:22:22,140
+one more thing that I can recommend
+
+439
+00:22:22,140 --> 00:22:24,440
+is using JVM GC for peak throughput,
+
+440
+00:22:24,440 --> 00:22:26,280
+especially if you have an application that
+
+441
+00:22:26,280 --> 00:22:28,979
+is long running, does a lot of allocation,
+
+442
+00:22:28,979 --> 00:22:31,560
+uses a lot of threads, then JVM probably
+
+443
+00:22:31,560 --> 00:22:33,759
+will be your best shot.
+
+444
+00:22:33,759 --> 00:22:36,720
+One new GC thing that we introduced in the last release
+
+445
+00:22:36,720 --> 00:22:38,800
+is now we have this new compacting policy
+
+446
+00:22:38,800 --> 00:22:41,920
+for the serial GC, which is less tailored towards peak
+
+447
+00:22:41,920 --> 00:22:44,640
+throughput, but it's rather targeting making sure
+
+448
+00:22:44,640 --> 00:22:48,640
+that you will never go overboard with peak memory usage.
+
+449
+00:22:48,640 --> 00:22:50,800
+So if you want to have good peak throughput,
+
+450
+00:22:50,800 --> 00:22:52,759
+but you want to make sure that you will never
+
+451
+00:22:52,759 --> 00:22:56,200
+go overboard with memory usage, use this compacting GC policy.
+
+452
+00:22:57,200 --> 00:22:59,519
+And then the last flag here is a mark native.
+
+453
+00:22:59,519 --> 00:23:02,200
+So this says, hey, I'm using this machine,
+
+454
+00:23:02,200 --> 00:23:04,440
+and I will be building and deploying on this machine.
+
+455
+00:23:04,440 --> 00:23:07,280
+Please specialize for the specific architecture
+
+456
+00:23:07,280 --> 00:23:09,519
+and hardware features of this machine,
+
+457
+00:23:09,519 --> 00:23:11,679
+as opposed to building a binary that
+
+458
+00:23:11,679 --> 00:23:15,599
+will be very compatible with many possible versions
+
+459
+00:23:15,599 --> 00:23:16,879
+of the same architecture.
+
+460
+00:23:16,879 --> 00:23:18,459
+So this will specialize for the machine
+
+461
+00:23:18,459 --> 00:23:20,000
+that you are building on.
+
+462
+00:23:20,000 --> 00:23:21,920
+Now, I was debating whether we have enough time
+
+463
+00:23:21,920 --> 00:23:24,119
+for benchmarking, and we don't have enough time
+
+464
+00:23:24,119 --> 00:23:25,239
+for proper benchmarking.
+
+465
+00:23:25,280 --> 00:23:27,319
+But I know that otherwise you wouldn't believe me
+
+466
+00:23:27,319 --> 00:23:28,560
+about all those flags.
+
+467
+00:23:28,560 --> 00:23:32,599
+So let's see if we can do at least a quick round
+
+468
+00:23:32,599 --> 00:23:34,000
+of benchmarking.
+
+469
+00:23:34,000 --> 00:23:37,440
+For this, we will run our same dictionary application,
+
+470
+00:23:37,440 --> 00:23:41,039
+only we need to go back to the dictionary folder.
+
+471
+00:23:41,039 --> 00:23:43,800
+So what I will do here, I will run my application three times.
+
+472
+00:23:43,800 --> 00:23:46,479
+First, I will run it on C2.
+
+473
+00:23:46,479 --> 00:23:49,560
+So this is in the JVM mode with the C2 compiler,
+
+474
+00:23:49,560 --> 00:23:52,280
+same compiler as in your, let's say, OpenJDK.
+
+475
+00:23:52,280 --> 00:23:54,119
+And the script will start my application,
+
+476
+00:23:54,119 --> 00:23:55,399
+the same dictionary app.
+
+477
+00:23:55,399 --> 00:23:58,560
+And then we will use the benchmarking tool called Hey
+
+478
+00:23:58,560 --> 00:24:01,560
+to send 500,000 requests to our app.
+
+479
+00:24:01,560 --> 00:24:03,720
+In the beginning, we will also wait five seconds
+
+480
+00:24:03,720 --> 00:24:06,879
+to give the JVM a bit of time to start.
+
+481
+00:24:06,879 --> 00:24:08,160
+So we run our application.
+
+482
+00:24:08,160 --> 00:24:12,840
+Our peak throughput is around 50k requests per second.
+
+483
+00:24:12,840 --> 00:24:14,519
+Let's get a native version.
+
+484
+00:24:14,519 --> 00:24:19,119
+Only let's do the comparison side by side.
+
+485
+00:24:19,119 --> 00:24:21,160
+So now I will send the exact same load.
+
+486
+00:24:21,160 --> 00:24:23,799
+And I will also wait like I had to wait with the JVM.
+
+487
+00:24:23,980 --> 00:24:27,199
+But we will, again, save 500,000 to our application,
+
+488
+00:24:27,199 --> 00:24:29,160
+now just the native version.
+
+489
+00:24:29,160 --> 00:24:32,519
+So here we were at 50k requests per second.
+
+490
+00:24:32,519 --> 00:24:36,040
+Who thinks that the native version will be faster?
+
+491
+00:24:36,040 --> 00:24:37,639
+Well, you know that I work on GraalVM,
+
+492
+00:24:37,639 --> 00:24:39,519
+so I could have applied some of your tricks
+
+493
+00:24:39,519 --> 00:24:42,000
+to kind of seem faster, right?
+
+494
+00:24:42,000 --> 00:24:43,760
+But let's see.
+
+495
+00:24:43,760 --> 00:24:48,079
+So this one is at 42, a bit slower than the JVM.
+
+496
+00:24:48,079 --> 00:24:50,600
+But this was our native image out of the box.
+
+497
+00:24:50,600 --> 00:24:51,980
+So this is the experience you will
+
+498
+00:24:51,980 --> 00:24:55,299
+get if you're not applying any optimization yourself.
+
+499
+00:24:55,299 --> 00:24:59,340
+Now, what happens if I go ahead and I apply those three flags
+
+500
+00:24:59,340 --> 00:25:00,660
+that I mentioned?
+
+501
+00:25:00,660 --> 00:25:03,459
+So bench native optimized.
+
+502
+00:25:03,459 --> 00:25:07,859
+And this is a version with PGO, with JVM GC, and M-Arc native.
+
+503
+00:25:07,859 --> 00:25:10,699
+And let me just push those side by side
+
+504
+00:25:10,699 --> 00:25:14,419
+so we can compare when we get the final numbers.
+
+505
+00:25:14,419 --> 00:25:16,739
+OK, so 50k, 42k.
+
+506
+00:25:16,739 --> 00:25:18,639
+And once again, disclaimer, by no means
+
+507
+00:25:18,639 --> 00:25:20,179
+this is scientific benchmarking.
+
+508
+00:25:20,179 --> 00:25:22,500
+Scientific benchmarking will require at least like half
+
+509
+00:25:22,500 --> 00:25:25,380
+an hour and a proper isolated machine.
+
+510
+00:25:25,380 --> 00:25:28,220
+But close enough for a conference session.
+
+511
+00:25:28,220 --> 00:25:30,419
+So 50k, 42k.
+
+512
+00:25:30,419 --> 00:25:34,060
+And here with the optimization, we are at 58k.
+
+513
+00:25:34,060 --> 00:25:37,419
+So I'm not necessarily claiming that a native app will always
+
+514
+00:25:37,419 --> 00:25:38,739
+be faster than the JVM.
+
+515
+00:25:38,739 --> 00:25:40,540
+But what I rather want to show here
+
+516
+00:25:40,540 --> 00:25:42,980
+is that the impact of those three optimizations,
+
+517
+00:25:42,980 --> 00:25:45,739
+if you take the time and effort to apply them,
+
+518
+00:25:45,739 --> 00:25:46,980
+can be substantial.
+
+519
+00:25:46,980 --> 00:25:48,419
+So if you want to have good peaks
+
+520
+00:25:48,419 --> 00:25:51,579
+throughput on native image, test.
+
+521
+00:25:51,579 --> 00:25:53,980
+And we can play with the combination of the flags.
+
+522
+00:25:53,980 --> 00:25:59,340
+But most likely, PGO, JVM, and M-Arc native is what you want.
+
+523
+00:25:59,340 --> 00:26:01,299
+Now, talking about the features that you
+
+524
+00:26:01,299 --> 00:26:05,060
+might want to use in production working with native image,
+
+525
+00:26:05,060 --> 00:26:09,019
+let me go back to my agenda.
+
+526
+00:26:09,019 --> 00:26:10,419
+Here it is.
+
+527
+00:26:10,419 --> 00:26:12,260
+So I want to very briefly say a few things
+
+528
+00:26:12,260 --> 00:26:13,899
+about development strategies, and then
+
+529
+00:26:13,899 --> 00:26:15,500
+building and deploying.
+
+530
+00:26:15,500 --> 00:26:18,100
+So for development, what I want to recommend to you
+
+531
+00:26:18,100 --> 00:26:20,019
+is you keep developing on the JVM.
+
+532
+00:26:20,019 --> 00:26:22,940
+And then you compile to native once in a while,
+
+533
+00:26:22,940 --> 00:26:26,299
+maybe in your CICD, or once a day,
+
+534
+00:26:26,299 --> 00:26:28,220
+or if you are touching things that you know
+
+535
+00:26:28,220 --> 00:26:29,820
+are sensitive to native image.
+
+536
+00:26:29,820 --> 00:26:31,980
+So if you're introducing a new dependency,
+
+537
+00:26:31,980 --> 00:26:33,340
+if you are touching your reflection
+
+538
+00:26:33,340 --> 00:26:35,299
+and serialization resources, but you
+
+539
+00:26:35,299 --> 00:26:37,859
+don't need to recompile every five minutes,
+
+540
+00:26:37,859 --> 00:26:41,019
+or if I'm introducing minor changes to my business logic,
+
+541
+00:26:41,019 --> 00:26:42,220
+this is just not necessary.
+
+542
+00:26:42,220 --> 00:26:44,380
+It will be a waste of your time.
+
+543
+00:26:44,380 --> 00:26:46,260
+So a good practice is develop on the JVM
+
+544
+00:26:46,260 --> 00:26:48,540
+and then compile to native, as I mentioned, in CICD,
+
+545
+00:26:48,540 --> 00:26:50,899
+maybe once a day, or before the deployment,
+
+546
+00:26:50,899 --> 00:26:52,780
+when you're ready to deploy, or if you
+
+547
+00:26:52,780 --> 00:26:54,260
+touch something major in your app,
+
+548
+00:26:54,260 --> 00:26:56,859
+such as introduced a new dependency.
+
+549
+00:26:56,859 --> 00:26:59,060
+Now, for building and deploying, native image
+
+550
+00:26:59,060 --> 00:27:01,179
+produces native executables that are
+
+551
+00:27:01,179 --> 00:27:04,340
+specific to a platform and operating system,
+
+552
+00:27:04,340 --> 00:27:06,220
+because we need some JDK classes that
+
+553
+00:27:06,220 --> 00:27:08,260
+are specific for each platform.
+
+554
+00:27:08,260 --> 00:27:10,060
+Now, there are multiple ways around it.
+
+555
+00:27:10,060 --> 00:27:11,619
+You can do container images.
+
+556
+00:27:11,619 --> 00:27:13,940
+You can use something like Buildpacks for that,
+
+557
+00:27:14,500 --> 00:27:16,060
+or another thing you can do is you
+
+558
+00:27:16,060 --> 00:27:18,419
+can use CICD systems, such as, for example,
+
+559
+00:27:18,419 --> 00:27:21,380
+I'm using for my demo projects, GitHub Actions.
+
+560
+00:27:21,380 --> 00:27:23,780
+And there, you can just set up builds for each platform.
+
+561
+00:27:23,780 --> 00:27:26,619
+And you can just build there and deliver to whatever platforms
+
+562
+00:27:26,619 --> 00:27:28,540
+you need to deliver.
+
+563
+00:27:28,540 --> 00:27:30,660
+So this will be my tips for that.
+
+564
+00:27:30,660 --> 00:27:33,299
+Now, I want to show you one last thing for security
+
+565
+00:27:33,299 --> 00:27:34,459
+and monitoring.
+
+566
+00:27:34,459 --> 00:27:37,179
+And for that, let me switch to my local machine,
+
+567
+00:27:37,179 --> 00:27:39,859
+because I need my UI here.
+
+568
+00:27:39,859 --> 00:27:41,899
+So let's say, oh, by the way, did you
+
+569
+00:27:41,899 --> 00:27:43,619
+know that you can do this?
+
+570
+00:27:43,619 --> 00:27:45,940
+Well, it would have been installed, but in my case,
+
+571
+00:27:45,940 --> 00:27:47,380
+less because I already have it.
+
+572
+00:27:47,380 --> 00:27:48,780
+Oh, wrong.
+
+573
+00:27:48,780 --> 00:27:51,340
+Visual VM.
+
+574
+00:27:51,340 --> 00:27:53,419
+So you can install Visual VM as SDK man,
+
+575
+00:27:53,419 --> 00:27:55,459
+and you can manage it along with your JDKs.
+
+576
+00:27:55,459 --> 00:27:56,940
+I think this is pretty cool.
+
+577
+00:27:56,940 --> 00:27:58,579
+So I have my Visual VM.
+
+578
+00:27:58,579 --> 00:28:00,459
+Let's get it started.
+
+579
+00:28:00,459 --> 00:28:02,540
+And I want to show you a version of an application
+
+580
+00:28:02,540 --> 00:28:04,940
+that you can actually monitor in Visual VM.
+
+581
+00:28:04,940 --> 00:28:07,579
+So I have the same app, or rather very similar,
+
+582
+00:28:07,579 --> 00:28:09,179
+that I was showing to you before.
+
+583
+00:28:09,179 --> 00:28:10,940
+Let me cancel.
+
+584
+00:28:10,940 --> 00:28:12,820
+Let me just run this.
+
+585
+00:28:13,820 --> 00:28:14,619
+OK.
+
+586
+00:28:14,619 --> 00:28:17,780
+Demo Central.
+
+587
+00:28:17,780 --> 00:28:21,780
+Native Spring Boot SBOM.
+
+588
+00:28:21,780 --> 00:28:24,699
+And I need my executable.
+
+589
+00:28:24,699 --> 00:28:27,940
+So this is, again, a native Spring application that runs.
+
+590
+00:28:27,940 --> 00:28:32,019
+And when we go here, it returns hello.
+
+591
+00:28:32,019 --> 00:28:33,860
+But more importantly, it's integrated
+
+592
+00:28:33,860 --> 00:28:36,259
+with Spring Actuator.
+
+593
+00:28:36,259 --> 00:28:38,939
+And what I can do here is I can instruct
+
+594
+00:28:38,939 --> 00:28:41,340
+Spring Boot to pick up my SBOM file
+
+595
+00:28:41,340 --> 00:28:43,620
+from a known location in the file.
+
+596
+00:28:43,620 --> 00:28:46,180
+And this way, I can expose my SBOM,
+
+597
+00:28:46,180 --> 00:28:48,620
+or I can take it from here and feed into my vulnerability
+
+598
+00:28:48,620 --> 00:28:49,459
+scanners.
+
+599
+00:28:49,459 --> 00:28:52,139
+And I can see what is actually in my native binary.
+
+600
+00:28:52,139 --> 00:28:54,100
+So this existed before, but previously, this
+
+601
+00:28:54,100 --> 00:28:56,459
+was always embedded in the native executable.
+
+602
+00:28:56,459 --> 00:29:00,019
+Now you can also include it as a class pass resource.
+
+603
+00:29:00,019 --> 00:29:01,660
+And then it can be picked up from things
+
+604
+00:29:01,660 --> 00:29:03,420
+like Spring Actuator.
+
+605
+00:29:03,420 --> 00:29:05,100
+And I have exactly one minute, so I also
+
+606
+00:29:05,100 --> 00:29:07,699
+want to show you how you can monitor such applications.
+
+607
+00:29:07,699 --> 00:29:09,860
+Because I hear a lot that there is no way to monitor
+
+608
+00:29:09,860 --> 00:29:12,499
+native image applications, but that is not true.
+
+609
+00:29:12,499 --> 00:29:15,379
+So I have built my application with a few flags.
+
+610
+00:29:15,379 --> 00:29:18,860
+One of them is enableMonitoring equals JVM stat.
+
+611
+00:29:18,860 --> 00:29:20,379
+And this makes it possible for me
+
+612
+00:29:20,379 --> 00:29:23,059
+to have my application running and being observed here
+
+613
+00:29:23,059 --> 00:29:24,379
+in Visual VM.
+
+614
+00:29:24,379 --> 00:29:26,860
+To prove to you that this is actually running live,
+
+615
+00:29:26,860 --> 00:29:31,259
+we can go ahead and super quickly send a bit of load
+
+616
+00:29:31,259 --> 00:29:32,579
+to my app.
+
+617
+00:29:32,579 --> 00:29:34,620
+Hello, this is my endpoint.
+
+618
+00:29:34,620 --> 00:29:38,340
+So I can go here, and I can send, I don't know,
+
+619
+00:29:38,340 --> 00:29:43,899
+OK, and equals, let's say, 1,000 to my app.
+
+620
+00:29:43,899 --> 00:29:46,100
+And it already responded because it was that fast.
+
+621
+00:29:46,100 --> 00:29:48,180
+And here in Visual VM, I can see a bit of spike
+
+622
+00:29:48,180 --> 00:29:49,819
+in terms of threads and something
+
+623
+00:29:49,819 --> 00:29:51,660
+going on with memory.
+
+624
+00:29:51,660 --> 00:29:54,100
+So this is one way to monitor native image applications.
+
+625
+00:29:54,100 --> 00:29:56,059
+But also, if you're deploying your applications
+
+626
+00:29:56,059 --> 00:29:58,620
+to the cloud, many vendors offer some kind of support
+
+627
+00:29:58,620 --> 00:29:59,540
+on that platform.
+
+628
+00:29:59,540 --> 00:30:02,980
+So you can check out what they offer for native image.
+
+629
+00:30:02,980 --> 00:30:05,580
+to executables specifically.
+
+630
+00:30:05,580 --> 00:30:08,220
+Now, with that, I want to wrap up.
+
+631
+00:30:08,220 --> 00:30:09,880
+Here are my final few slides.
+
+632
+00:30:09,880 --> 00:30:11,260
+So if you have any questions, I'll
+
+633
+00:30:11,260 --> 00:30:13,380
+be here during the break and the rest of the week.
+
+634
+00:30:13,380 --> 00:30:16,340
+Or you can also get my demos from GitHub.
+
+635
+00:30:16,340 --> 00:30:20,300
+And if you would be so nice, please write the session.
+
+636
+00:30:20,300 --> 00:30:22,100
+And I'm standing here to answer questions.
+
+637
+00:30:22,100 --> 00:30:23,660
+Also, if you want to get stickers,
+
+638
+00:30:23,660 --> 00:30:25,740
+I have some Growl VM stickers with me.
+
+639
+00:30:25,740 --> 00:30:27,980
+Thank you so much for coming, and have a great DevOps.
+
+640
+00:30:27,980 --> 00:30:28,480
+Thank you.
+
+641
+00:30:28,480 --> 00:30:30,039
+Thank you.
+

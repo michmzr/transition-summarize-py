@@ -257,5 +257,12 @@ cython_debug/
 
 .node_modules
 
-./scripts/data/chunks
-./scripts/data/chunks/*
+scripts/data/chunks
+scripts/data/chunks/**
+scripts/data/chunks/*
+
+pytest_cache
+pytest_cache/*
+pytest-results.xml
+
+.idea

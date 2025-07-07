@@ -1,7 +1,11 @@
 import logging
+from contextlib import asynccontextmanager
 
 import static_ffmpeg
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 import app.database
 from app import database  # Import database directly
@@ -12,8 +16,9 @@ from app.routers.youtube import yt_router
 from app.routers.artifacts import router as artifacts_router
 from app.schema import models
 from app.settings import Settings, get_settings
-from app.database import init_db
+from app.database import init_db, get_engine  # Import get_engine
 from app.middleware.request_id import RequestIDMiddleware, RequestIDFilter
+from app.middleware.security import RateLimitMiddleware, SecurityHeadersMiddleware
 from app.scheduler import init_scheduler, add_cron_job
 from app.tasks.cleanup import cleanup_downloads
 from app.schema.pydantic_models import User
@@ -22,7 +27,61 @@ static_ffmpeg.add_paths()
 
 settings = Settings()
 
-app = FastAPI()
+# Define lifespan context manager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Code to run on startup
+    get_engine()  # Ensure engine is created if not already
+    init_db()     # Initialize database (conditionally creates tables)
+    logging.info("Application startup: Database initialized.")
+    yield
+    # Code to run on shutdown (optional)
+    logging.info("Application shutdown.")
+
+app = FastAPI(
+    title="Transition Summarize API",
+    description="API for summarizing transitions",
+    version="1.0.0",
+    docs_url="/docs",
+    openapi_url="/openapi.json",
+    # Configure for long-running requests
+    timeout=600,  # 10 minutes timeout
+    keep_alive_timeout=600,  # 10 minutes keep-alive
+    lifespan=lifespan  # Add lifespan manager
+)
+
+# Security middleware
+if settings.enable_cors:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.security_config["allowed_origins"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        max_age=3600,
+    )
+
+# Trusted hosts middleware
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=settings.security_config["allowed_hosts"]
+)
+
+# Session middleware
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    max_age=3600,  # 1 hour
+    same_site="lax",
+    https_only=settings.is_production
+)
+
+# Add security middlewares
+if settings.security_config["enable_rate_limiting"]:
+    app.add_middleware(RateLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Initialize scheduler
 init_scheduler(app)
@@ -61,7 +120,7 @@ logger.setLevel(get_settings().logging_level)
 
 # Create formatters and handlers with simplified format
 formatter = logging.Formatter(
-    "[%(levelname)s] [%(request_id)s] %(message)s"
+    "[%(asctime)s UTC] [%(levelname)s] [%(request_id)s] [%(filename)s] %(message)s"
 )
 
 file_handler = logging.FileHandler("debug.log")
@@ -75,9 +134,6 @@ console_handler.addFilter(RequestIDFilter())
 # Add handlers to logger
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
-
-# Initialize database (only in non-test environment)
-init_db()
 
 # Health api
 @app.get("/health")

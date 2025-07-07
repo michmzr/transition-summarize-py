@@ -14,13 +14,21 @@ jobs:
       JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       PROXY_SERVERS: ${{ secrets.PROXY_SERVERS }}
+      ENVIRONMENT: production
+      IS_LOCAL: false
+      ENABLE_CORS: true
+      ENABLE_RATE_LIMITING: true
+      ENABLE_HTTPS_REDIRECT: true
+      ENABLE_SECURITY_HEADERS: true
+      ALLOWED_ORIGINS: https://summarizer.cybershu.eu
+      ALLOWED_HOSTS: summarizer.cybershu.eu
 
   deploy:
     needs: test_and_build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
@@ -30,8 +38,20 @@ jobs:
           echo "${{ secrets.SSH_PASSPHRASE }}" | ssh-add ~/.ssh/id_rsa
           ssh-add -l
 
+          # Create production environment file
+          cat > deploy/av-summ.env << EOL
+          ENVIRONMENT=production
+          IS_LOCAL=false
+          ENABLE_CORS=true
+          ENABLE_RATE_LIMITING=true
+          ENABLE_HTTPS_REDIRECT=true
+          ENABLE_SECURITY_HEADERS=true
+          ALLOWED_ORIGINS=https://summarizer.cybershu.eu
+          ALLOWED_HOSTS=summarizer.cybershu.eu
+          EOL
+
           ssh -o StrictHostKeyChecking=no av-summarizer-py@${{ secrets.SSH_HOST }} "echo SSH connection successful; pwd; source ~/deploy.sh"
-      
+
       - name: Health check
         run: |
           echo "Waiting for 30 seconds before healthcheck"

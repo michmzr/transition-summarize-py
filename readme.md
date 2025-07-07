@@ -54,7 +54,7 @@ alembic upgrade head
 #### Local Development
 1. Start the database:
 ```bash
-docker-compose --env-file ./.env -f ./deploy/docker-compose.yml up 
+docker-compose --env-file ./.env -f ./deploy/docker-compose.yml up
 ```
 
 2. Ensure database schema is up to date:
@@ -68,6 +68,14 @@ uvicorn main:app --reload
 ```
 
 ## Tests
+`pipenv run pytest `
+
+
+### Unit Tests
+```bash
+pipenv run pytest tests/unit -v
+```
+
 ### Integration Tests
 ```bash
 pipenv run pytest tests/integration -v

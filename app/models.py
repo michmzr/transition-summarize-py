@@ -16,7 +16,7 @@ class SUMMARIZATION_TYPE(str, Enum):
 class YTVideoTranscribe(BaseModel):
     url: str
     lang: LANG_CODE = Field(default=LANG_CODE.POLISH,
-                            title="Video language as ISO-639-1 code like PL, EN", ),
+                            title="Video language as ISO-639-1 code like PL, EN")
     response_format: WHISPER_RESPONSE_FORMAT = Field(
         default=WHISPER_RESPONSE_FORMAT.SRT, title="Response format")
 
@@ -34,9 +34,9 @@ class YTVideoTranscribe(BaseModel):
 
 
 class ApiProcessingResult(BaseModel):
-    result: bool = Field(title="Success or error")
-    error: Optional[str] = Field(title="Error description")
-    text: Optional[str] = Field(title="Video transcription")
+    result: Optional[str | dict | list] = Field(
+        None, title="Result of endpoint operation")
+    error: Optional[str] = Field(None, title="Error description")
 
 
 class YtVideoInfoRequest(BaseModel):
@@ -70,6 +70,9 @@ class YtVideoSummarize(BaseModel):
         default=SUMMARIZATION_TYPE.TLDR, title="Type of summarization")
     lang: LANG_CODE = Field(default=LANG_CODE.POLISH,
                             title="Language code of transcription and final summarization text")
+
+    response_format: WHISPER_RESPONSE_FORMAT = Field(
+        default=WHISPER_RESPONSE_FORMAT.SRT, title="Response format")
     use_yt_transcription: bool = Field(
         default=True, title="Use YT transcription or generate new one. If YT transcription is nto found then transcription will be generated")
 

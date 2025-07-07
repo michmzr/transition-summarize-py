@@ -18,7 +18,7 @@ permissions:
 jobs:
   setup_and_test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
 
@@ -30,6 +30,9 @@ jobs:
 
       - name: Set up Docker
         uses: docker/setup-buildx-action@v3
+
+      - name: Pull PostgreSQL Docker image
+        run: docker pull postgres:15-alpine
 
       - name: Install pipenv
         run: |
@@ -66,6 +69,7 @@ jobs:
 
           # Test environment indicator
           TESTING: true
+          GITHUB_ACTIONS: true
 
           # Let testcontainers handle all database configuration
           POSTGRES_HOST: ""  # Will be set by testcontainers
@@ -73,10 +77,19 @@ jobs:
           POSTGRES_USER: ""  # Will be set by testcontainers
           POSTGRES_PASSWORD: ""  # Will be set by testcontainers
           POSTGRES_DB: ""  # Will be set by testcontainers
+
+          # Testcontainers configuration
+          TESTCONTAINERS_DOCKER_CLIENT_STRATEGY: org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
+          TESTCONTAINERS_RYUK_DISABLED: true
+          TESTCONTAINERS_CHECKS_DISABLE: true
         run: |
           echo "Installing dependencies..."
           pipenv --python ${{ env.pythonLocation }}/bin/python install
-          pipenv install pytest-asyncio pytest-cov pytest-html pytest-sugar
+          pipenv install pytest-asyncio pytest-cov pytest-html pytest-sugar docker
+
+          echo "Docker info and status:"
+          docker info
+          docker ps
 
           echo "Running tests..."
           PYTHONPATH=$PWD pipenv run pytest \
@@ -91,10 +104,10 @@ jobs:
           echo "Test files generated:"
           ls -la pytest-results.xml || echo "pytest-results.xml not found"
           ls -la coverage.xml || echo "coverage.xml not found"
-          
+
           echo "Content of pytest-results.xml:"
           cat pytest-results.xml || echo "Cannot read pytest-results.xml"
-          
+
           echo "Content of coverage.xml:"
           cat coverage.xml || echo "Cannot read coverage.xml"
 
@@ -103,7 +116,7 @@ jobs:
         id: test-results
         run: |
           echo "Starting test results processing..."
-          
+
           # Initialize default values
           echo "tests=0" >> $GITHUB_OUTPUT
           echo "failures=0" >> $GITHUB_OUTPUT
@@ -166,10 +179,10 @@ jobs:
           issue-number: ${{ steps.pr.outputs.number }}
           body: |
             ### Test Results Summary 📊
-            
+
             #### Coverage Report
             - Total Coverage: ${{ steps.test-results.outputs.coverage }}%
-            
+
             #### Test Statistics
             - Total Tests: ${{ steps.test-results.outputs.tests }}
             - ✅ Passed: ${{ steps.test-results.outputs.passed }}
@@ -177,7 +190,7 @@ jobs:
             - 🔴 Errors: ${{ steps.test-results.outputs.errors }}
             - ⏭️ Skipped: ${{ steps.test-results.outputs.skipped }}
             - ⏱️ Duration: ${{ steps.test-results.outputs.time }}s
-            
+
             > Results from test run at ${{ github.event.head_commit.timestamp }}
           edit-mode: replace
 

@@ -17,7 +17,11 @@
                 "0.0.0.0",
                 "--port",
                 "8086",
-                "--reload"
+                "--reload",
+                "--timeout-keep-alive",
+                "300",
+                "--limit-concurrency",
+                "1000"
             ],
             "jinja": true,
             "justMyCode": false,
@@ -29,7 +33,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/scripts/long-srt-summary.py",
             "args": [
-                "--input", "${workspaceFolder}/scripts/data/30min.srt",
+                "--input", "${workspaceFolder}/scripts/data/automat.srt",
                 "--output-dir", "${workspaceFolder}/scripts/data/chunks",
                 "--chunk-duration", "20"
             ],
@@ -43,9 +47,9 @@
             "request": "launch",
             "program": "${workspaceFolder}/scripts/long-srt-summary.py",
             "args": [
-                "--input", "${workspaceFolder}/scripts/data/long.txt",
+                "--input", "${workspaceFolder}/scripts/data/o_startegiach.srt",
                 "--output-dir", "${workspaceFolder}/scripts/data/chunks",
-                "--chunk-duration", "20"
+                "--chunk-duration", "60"
             ],
             "justMyCode": false,
             "envFile": "${workspaceFolder}/.env",

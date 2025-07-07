@@ -19,7 +19,7 @@ from app.summary.summarization import summarize
 from app.transcribe.transcription import download_and_extract_audio_from_link, transcribe
 from app.utils.files import string_to_filename
 from app.youtube.metadata import get_youtube_metadata
-from app.youtube.transcriptions import download_transcription
+from app.youtube.transcriptions import download_transcription_from_yt
 
 yt_router = APIRouter(
     prefix="/youtube",
@@ -73,39 +73,17 @@ async def yt_transcription(
         save_dir = save_dir_path(yt_request.url)
 
         transcription = None
+        if yt_request.use_yt_transcription:
+            logging.info(f"Using YT transcription: {yt_request.url}")
 
-        logging.info(f"Using Whisper transcription: {yt_request.url}")
+            transcription = download_transcription_from_yt(
+                yt_request.url, yt_request.lang)
 
-        audio_file = download_and_extract_audio_from_link(
-            yt_request.url, save_dir)
+        if not transcription:
+            logging.info(f"Using Whisper transcription: {yt_request.url}")
 
-        if not audio_file:
-            process_failed(
-                process_id, f"Failed to download audio from the YouTube video - request: {yt_request}")
-            raise HTTPException(
-                status_code=500, detail=f"Failed to download audio from the YouTube video - request: {yt_request}, becouse of: {e}")
-
-        # Create a temporary file and prepare a UploadFile from it
-        temp_file = SpooledTemporaryFile()
-        with open(audio_file, 'rb') as f:
-            temp_file.write(f.read())
-        temp_file.seek(0)
-
-        # Create UploadFile with the correct filename
-        filename = os.path.basename(str(audio_file))
-        mock_upload_file = UploadFile(
-            file=temp_file,
-            filename=filename
-        )
-
-        try:
-            transcription = await transcribe_uploaded_file(
-                mock_upload_file, yt_request.lang, yt_request.response_format)
-        finally:
-            # Clean up resources
-            await mock_upload_file.close()
-            temp_file.close()
-            os.remove(audio_file)
+            transcription = await download_audio_and_transcribe(
+                yt_request.url, save_dir, process_id, yt_request.lang, yt_request.response_format)
 
         if not transcription:
             process_failed(
@@ -194,6 +172,55 @@ def save_dir_path(url):
     return save_dir
 
 
+async def download_audio_and_transcribe(url: str, save_dir: str, process_id: str, lang: str, response_format):
+    """
+    Download audio from YouTube URL and transcribe it using Whisper.
+
+    Args:
+        url (str): YouTube URL to download audio from
+        save_dir (str): Directory to save the downloaded audio
+        process_id (str): Process ID for error handling
+        lang (str): Language code for transcription
+        response_format: Response format for transcription
+
+    Returns:
+        str: The transcription text
+
+    Raises:
+        HTTPException: If audio download or transcription fails
+    """
+    audio_file = download_and_extract_audio_from_link(url, save_dir)
+
+    if not audio_file:
+        process_failed(
+            process_id, f"Failed to download audio from the YouTube video - url: {url}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to download audio from the YouTube video - url: {url}")
+
+    # Create a temporary file and prepare a UploadFile from it
+    temp_file = SpooledTemporaryFile()
+    with open(audio_file, 'rb') as f:
+        temp_file.write(f.read())
+    temp_file.seek(0)
+
+    # Create UploadFile with the correct filename
+    filename = os.path.basename(str(audio_file))
+    mock_upload_file = UploadFile(
+        file=temp_file,
+        filename=filename
+    )
+
+    try:
+        transcription = await transcribe_uploaded_file(
+            mock_upload_file, lang, response_format)
+        return transcription
+    finally:
+        # Clean up resources
+        await mock_upload_file.close()
+        temp_file.close()
+        os.remove(audio_file)
+
+
 @yt_router.post("/summarize", response_model=SummaryResult | ApiProcessingResult)
 async def yt_summarize(
         request: Request,
@@ -240,38 +267,21 @@ async def yt_summarize(
         save_dir = save_dir_path(yt_request.url)
 
         transcription = None
-        logging.info(
-            f"Using Whisper transcription: '{yt_request.url}' for language '{yt_request.lang}'")
-        audio_file = download_and_extract_audio_from_link(
-            yt_request.url, save_dir)
 
-        if not audio_file:
-            process_failed(
-                process_id, "Failed to download audio from the YouTube video")
-            raise HTTPException(
-                status_code=500, detail="Failed to download audio from the YouTube video")
+        if yt_request.use_yt_transcription:
+            logging.info(
+                f" Using YT transcription: '{yt_request.url}' for language '{yt_request.lang}'")
+            transcription = download_transcription_from_yt(
+                yt_request.url, yt_request.lang)
+            if transcription:
+                logging.debug(
+                    f"Downloaded transcription with length: {len(transcription)}")
 
-        # Create a temporary file and prepare a UploadFile from it
-        temp_file = SpooledTemporaryFile()
-        with open(audio_file, 'rb') as f:
-            temp_file.write(f.read())
-        temp_file.seek(0)
-
-        # Create UploadFile with the correct filename
-        filename = os.path.basename(str(audio_file))
-        mock_upload_file = UploadFile(
-            file=temp_file,
-            filename=filename
-        )
-
-        try:
-            transcription = await transcribe_uploaded_file(
-                mock_upload_file, yt_request.lang, yt_request.response_format)
-        finally:
-            # Clean up resources
-            await mock_upload_file.close()
-            temp_file.close()
-            os.remove(audio_file)
+        if not transcription:
+            logging.info(
+                f"Using Whisper transcription: '{yt_request.url}' for language '{yt_request.lang}'")
+            transcription = await download_audio_and_transcribe(
+                yt_request.url, save_dir, process_id, yt_request.lang, yt_request.response_format)
 
         if not transcription:
             process_failed(

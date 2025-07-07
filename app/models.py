@@ -73,6 +73,8 @@ class YtVideoSummarize(BaseModel):
 
     response_format: WHISPER_RESPONSE_FORMAT = Field(
         default=WHISPER_RESPONSE_FORMAT.SRT, title="Response format")
+    use_yt_transcription: bool = Field(
+        default=True, title="Use YT transcription or generate new one. If YT transcription is nto found then transcription will be generated")
 
     model_config = {
         "json_schema_extra": {
@@ -81,7 +83,7 @@ class YtVideoSummarize(BaseModel):
                     "url": "https://www.youtube.com/shorts/tvPMT89eJWo",
                     "type": "detailed",
                     "lang": "pl",
-                    "response_format": "srt"
+                    "use_yt_transcription": True
                 }
             ]
         }

@@ -65,7 +65,8 @@ async def summarize(text: str, type: SUMMARIZATION_TYPE, lang: LANG_CODE) -> str
 
     from app.settings import client_openai
     response = await client_openai.chat.completions.create(
-        model="gpt-4",
+        model=get_settings().llm_model,
+        temperature=0.2,
         messages=[
             {"role": "system", "content": get_template(type)},
             {"role": "user", "content": f"\n\n{text}"}

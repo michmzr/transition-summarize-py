@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # Basic settings
     disable_cache: bool = False
     logging_level: int = logging.DEBUG
+
+    # LLM settings
+    llm_model: str = Field(alias="LLM_MODEL", default="gpt-4.5-preview")
     openai_api_key: str = Field(alias="OPENAI_API_KEY")
 
     # Cleanup settings
@@ -77,6 +80,12 @@ class Settings(BaseSettings):
     enable_security_headers: bool = Field(
         default=True, alias="ENABLE_SECURITY_HEADERS")
     enable_cors: bool = Field(default=True, alias="ENABLE_CORS")
+
+    # RapidAPI - "Youtube Transcripts - Transcribe Youtube Video to Text" settings
+    supadata_yt_transcription_host: str = Field(
+        default="", alias="SUPADATA_YT_TRANSCRIPTION_HOST")
+    supadata_yt_transcription_api_key: str = Field(
+        default="", alias="SUPADATA_YT_TRANSCRIPTION_API_KEY")
 
     @property
     def is_production(self) -> bool:

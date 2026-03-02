@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import UploadFile, APIRouter, Response, status, Form, Request, Depends, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from starlette.responses import PlainTextResponse
 
 from app.auth import get_current_active_user
@@ -13,6 +14,7 @@ from app.models import SUMMARIZATION_TYPE, SummaryResult, ApiProcessingResult
 from app.processing.processing import complete_process, process_failed, register_new_process, register_process_artifact, update_process_status
 from app.schema.models import ProcessArtifactType, RequestStatus, RequestType, ProcessArtifactFormat
 from app.schema.pydantic_models import CompletedProcess, User
+from app.settings import get_settings
 from app.summary.summarization import summarize
 from app.transcribe.transcription import LANG_CODE, WHISPER_RESPONSE_FORMAT, transcribe
 
@@ -23,6 +25,11 @@ a_router = APIRouter(
     tags=["audio", "transcription", "summarization"],
     dependencies=[Depends(get_current_active_user)]
 )
+
+
+class RecursiveAudioTranscriptionRequest(BaseModel):
+    directory_path: str
+    lang: LANG_CODE = LANG_CODE.POLISH
 
 @a_router.post("/transcribe", response_model=ApiProcessingResult)
 def audio_trans(
@@ -274,3 +281,109 @@ def transcribe_file(save_path: str, file: str):
     except Exception as e:
         logging.error(f"Failed to process {file}: {str(e)}")
         raise
+
+
+@a_router.post("/recursive", response_model=ApiProcessingResult)
+def audio_recursive_transcribe(
+        request: Request,
+        recursive_request: RecursiveAudioTranscriptionRequest,
+        response: Response,
+        current_user: User = Depends(get_current_active_user)
+):
+    process_id = None
+    settings = get_settings()
+    if not settings.is_local:
+        logging.warning(
+            "Rejected /audio/recursive request because IS_LOCAL is disabled")
+        response.status_code = status.HTTP_403_FORBIDDEN
+        return ApiProcessingResult(result=False, error="Endpoint not available.")
+
+    directory_path = os.path.abspath(recursive_request.directory_path)
+    logging.info(
+        f"audio recursive transcribe api - directory_path: {directory_path}, lang: {recursive_request.lang}")
+
+    try:
+        if not os.path.exists(directory_path):
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return ApiProcessingResult(result=False, error=f"Directory does not exist: {directory_path}")
+
+        if not os.path.isdir(directory_path):
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return ApiProcessingResult(result=False, error=f"Path is not a directory: {directory_path}")
+
+        process_id = register_new_process(
+            current_user,
+            RequestType.AUDIO,
+            request=request,
+            request_data={
+                "directory_path": directory_path,
+                "lang": recursive_request.lang.value,
+                "mode": "recursive"}
+        )
+
+        audio_files: list[str] = []
+        for root, _, files in os.walk(directory_path):
+            for filename in files:
+                if filename.lower().endswith(VALID_AUDIO_EXTENSIONS):
+                    audio_files.append(os.path.join(root, filename))
+
+        if not audio_files:
+            update_process_status(process_id, CompletedProcess(
+                user_id=current_user.id,
+                status=RequestStatus.COMPLETED,
+                result=f"No audio files found in: {directory_path}",
+                result_format=ProcessArtifactFormat.TEXT,
+                lang=recursive_request.lang,
+                type=ProcessArtifactType.TRANSCRIPTION
+            ))
+            return ApiProcessingResult(result=True, error=None, text=f"No audio files found in: {directory_path}")
+
+        success_count = 0
+        failed_files: list[str] = []
+
+        for audio_path in audio_files:
+            output_path = f"{os.path.splitext(audio_path)[0]}.srt"
+            logging.info(f"Transcribing local audio file: {audio_path}")
+            try:
+                with open(audio_path, "rb") as audio_file:
+                    transcription = transcribe(
+                        audio_file, recursive_request.lang, WHISPER_RESPONSE_FORMAT.SRT)
+                with open(output_path, "w", encoding="utf-8") as output_file:
+                    output_file.write(transcription)
+                logging.info(f"Saved transcription file: {output_path}")
+                success_count += 1
+            except Exception as file_error:
+                logging.error(
+                    f"Failed recursive transcription for {audio_path}: {str(file_error)}")
+                failed_files.append(audio_path)
+
+        result_text = f"Processed {len(audio_files)} audio files. Successful: {success_count}. Failed: {len(failed_files)}."
+        if failed_files:
+            result_text += f" Failed files: {', '.join(failed_files)}"
+
+        update_process_status(process_id, CompletedProcess(
+            user_id=current_user.id,
+            status=RequestStatus.COMPLETED if not failed_files else RequestStatus.FAILED,
+            result=result_text,
+            result_format=ProcessArtifactFormat.TEXT,
+            lang=recursive_request.lang,
+            type=ProcessArtifactType.TRANSCRIPTION
+        ))
+
+        if failed_files:
+            response.status_code = status.HTTP_207_MULTI_STATUS
+            return ApiProcessingResult(result=False, error="Some files failed to transcribe", text=result_text)
+
+        return ApiProcessingResult(result=True, error=None, text=result_text)
+    except Exception as e:
+        logging.error(
+            f"Error in audio recursive transcribe endpoint: {str(e)}", exc_info=True)
+
+        if process_id:
+            process_failed(process_id, str(e))
+
+        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        return ApiProcessingResult(
+            result=False,
+            error="An error occurred while processing the directory",
+        )

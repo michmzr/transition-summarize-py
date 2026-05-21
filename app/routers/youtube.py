@@ -23,7 +23,34 @@ yt_router = APIRouter(
 )
 
 
-@yt_router.post("/transcribe", response_model=ApiProcessingResult)
+@yt_router.post(
+    "/transcribe",
+    response_model=ApiProcessingResult,
+    responses={
+        200: {
+            "description": "Transcription result. Content type depends on the `Accept` request header.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ApiProcessingResult"},
+                    "example": {"result": True, "error": None, "transcription": "1\n00:00:01,000 --> 00:00:05,000\nHello world", "format": "srt"},
+                },
+                "text/plain": {
+                    "schema": {"type": "string"},
+                    "example": "1\n00:00:01,000 --> 00:00:05,000\nHello world",
+                },
+            },
+        },
+        500: {
+            "description": "Internal server error during transcription.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ApiProcessingResult"},
+                    "example": {"result": False, "error": "Internal server error: <details>", "text": None},
+                }
+            },
+        },
+    },
+)
 def yt_transcription(
         request: Request,
         yt_request: YTVideoTranscribe,
@@ -33,18 +60,15 @@ def yt_transcription(
     """
     Transcribe a YouTube video.
 
-    Args:
-        request (Request): The FastAPI request object.
-        yt_request (YTVideoTranscribe): The request body containing YouTube video details.
+    The response format is determined by the `Accept` request header:
+    - `application/json` (default): JSON object with transcription result and metadata.
+    - `text/plain`: Raw transcription text.
 
-    Returns:
-        ApiProcessingResult: The transcription result.
-    Description:
-        This endpoint transcribes a YouTube video based on the provided URL, language, and response format.
-        It can return the result as plain text or JSON based on the Accept header.
+    Args:
+        yt_request (YTVideoTranscribe): YouTube video URL, language code, and desired response format.
 
     Raises:
-        HTTPException: If there's an error during transcription.
+        HTTP 500: If an unexpected error occurs during transcription.
     """
     process_id = None
     try:
@@ -111,7 +135,38 @@ def save_dir_path(url):
     return save_dir
 
 
-@yt_router.post("/summarize", response_model=ApiProcessingResult)
+@yt_router.post(
+    "/summarize",
+    response_model=SummaryResult,
+    responses={
+        200: {
+            "description": "Summarization result. Content type depends on the `Accept` request header.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/SummaryResult"},
+                    "example": {"summary": "The video covers the main highlights of the event..."},
+                },
+                "text/plain": {
+                    "schema": {"type": "string"},
+                    "example": "The video covers the main highlights of the event...",
+                },
+                "text/srt": {
+                    "schema": {"type": "string", "format": "binary"},
+                    "example": "1\n00:00:01,000 --> 00:00:05,000\nHello world",
+                },
+            },
+        },
+        500: {
+            "description": "Internal server error during transcription or summarization.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ApiProcessingResult"},
+                    "example": {"result": False, "error": "Error processing YouTube summarization", "text": "<error details>"},
+                }
+            },
+        },
+    },
+)
 def yt_summarize(
         request: Request,
         yt_request: YtVideoSummarize,
@@ -119,21 +174,18 @@ def yt_summarize(
         current_user: User = Depends(get_current_active_user)
 ):
     """
-    Summarize a YouTube video.
+    Transcribe and summarize a YouTube video.
+
+    The response format is determined by the `Accept` request header:
+    - `application/json` (default): JSON object containing the generated summary.
+    - `text/plain`: Raw summary text.
+    - `text/srt`: SRT subtitle file of the video transcription used for summarization.
 
     Args:
-        request (Request): The FastAPI request object.
-        yt_request (YtVideoSummarize): The request body containing YouTube video details and summarization options.
-
-    Returns:
-        ApiProcessingResult: The summarization result.
-
-    Description:
-        This endpoint transcribes a YouTube video and then summarizes the transcription.
-        It can return the result as plain text or JSON based on the Accept header.
+        yt_request (YtVideoSummarize): YouTube video URL, summarization type, language code, and whether to use existing YT transcription.
 
     Raises:
-        HTTPException: If there's an error during transcription or summarization.
+        HTTP 500: If an unexpected error occurs during transcription or summarization.
     """
 
     try:
@@ -205,7 +257,43 @@ def yt_summarize(
             text=str(e))
 
 
-@yt_router.post("/details", response_model=YoutubeMetadata | ApiProcessingResult)
+@yt_router.post(
+    "/details",
+    response_model=YoutubeMetadata | ApiProcessingResult,
+    responses={
+        200: {
+            "description": "YouTube video metadata.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/YoutubeMetadata"},
+                    "example": {
+                        "title": "Example Video",
+                        "full_title": "Example Video — Full Title",
+                        "filesize": None,
+                        "duration": 120.0,
+                        "duration_string": "2:00",
+                        "description": "Video description here.",
+                        "channel_url": "https://www.youtube.com/@example",
+                        "language": "en",
+                        "subtitles": {},
+                        "available_transcriptions": ["en", "pl"],
+                        "upload_date": "2024-01-15T00:00:00",
+                        "thumbnail": "https://i.ytimg.com/vi/example/maxresdefault.jpg",
+                    },
+                }
+            },
+        },
+        500: {
+            "description": "Internal server error while fetching video metadata.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ApiProcessingResult"},
+                    "example": {"result": False, "error": "Error processing YouTube details extraction: <details>", "text": "<details>"},
+                }
+            },
+        },
+    },
+)
 def yt_details(
         request: YtVideoInfoRequest,
         response: Response,
@@ -214,29 +302,14 @@ def yt_details(
     """
     Get detailed metadata for a YouTube video.
 
+    Returns a `YoutubeMetadata` JSON object on success, including title, duration,
+    description, channel URL, available subtitles and transcription languages, upload date, and thumbnail URL.
+
     Args:
-        request (YtVideoInfoRequest): The request object containing the YouTube video URL.
-
-    Returns:
-        YoutubeMetadata: Detailed metadata of the YouTube video, including:
-            - title: The title of the video.
-            - full_title: The full title of the video.
-            - filesize: The size of the video file (if available).
-            - duration: The duration of the video in seconds.
-            - duration_string: The duration of the video as a formatted string.
-            - description: The description of the video.
-            - channel_url: The URL of the channel that uploaded the video.
-            - language: The primary language of the video (if available).
-            - subtitles: A dictionary of available subtitles, keyed by language code.
-            - available_transcriptions: A list of available transcription language codes.
-            - upload_date: The date the video was uploaded.
-            - thumbnail: The URL of the video thumbnail.
-
-    Description:
-        This endpoint retrieves detailed metadata for a YouTube video using the provided URL.
+        request (YtVideoInfoRequest): Request body containing the YouTube video URL.
 
     Raises:
-        HTTPException: If there's an error fetching the video metadata.
+        HTTP 500: If an unexpected error occurs while fetching video metadata.
     """
 
     try:

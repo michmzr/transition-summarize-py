@@ -48,13 +48,14 @@ alembic downgrade base
 2. Reapply all migrations:
 ```bash
 alembic upgrade head
+```
 
 ## Running the Application
 
 #### Local Development
 1. Start the database:
 ```bash
-docker-compose --env-file ./.env -f ./deploy/docker-compose.yml up 
+docker-compose --env-file ./.env -f ./deploy/docker-compose.yml up
 ```
 
 2. Ensure database schema is up to date:
@@ -64,7 +65,7 @@ alembic upgrade head
 
 3. Run the application:
 ```bash
-uvicorn main:app --reload
+pipenv run uvicorn app.main:app --reload
 ```
 
 ## Tests

@@ -12,7 +12,11 @@ def get_engine():
     if _engine is None:
         settings = get_settings()
         if not settings.is_testing:
-            _engine = create_engine(settings.get_database_url())
+            _engine = create_engine(
+                settings.get_database_url(),
+                pool_pre_ping=True,
+                pool_recycle=1800,
+            )
     return _engine
 
 def get_session_maker():

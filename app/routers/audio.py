@@ -31,7 +31,48 @@ class RecursiveAudioTranscriptionRequest(BaseModel):
     directory_path: str
     lang: LANG_CODE = LANG_CODE.POLISH
 
-@a_router.post("/transcribe", response_model=ApiProcessingResult)
+@a_router.post(
+    "/transcribe",
+    response_model=ApiProcessingResult,
+    responses={
+        200: {
+            "description": "Transcription result. Content type depends on the `Accept` request header.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ApiProcessingResult"},
+                    "example": {"result": True, "error": None, "transcription": "1\n00:00:01,000 --> 00:00:05,000\nHello world", "format": "srt"},
+                },
+                "text/plain": {
+                    "schema": {"type": "string"},
+                    "example": "1\n00:00:01,000 --> 00:00:05,000\nHello world",
+                },
+                "text/srt": {
+                    "schema": {"type": "string", "format": "binary"},
+                    "description": "SRT file download. Returned when `Accept: text/srt` and `transcription_response_format=srt`. The filename in `Content-Disposition` is derived from the uploaded file name (e.g. `nagranie.mp3` → `nagranie.srt`).",
+                    "example": "1\n00:00:01,000 --> 00:00:05,000\nHello world",
+                },
+            },
+        },
+        400: {
+            "description": "Invalid file type or extension.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ApiProcessingResult"},
+                    "example": {"result": False, "error": "Invalid file type. Only audio files are accepted", "text": None},
+                }
+            },
+        },
+        500: {
+            "description": "Internal server error during transcription.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ApiProcessingResult"},
+                    "example": {"result": False, "error": "An error occurred while processing the audio file", "text": None},
+                }
+            },
+        },
+    },
+)
 def audio_trans(
         uploaded_file: UploadFile,
         lang: Annotated[LANG_CODE, Form()],
@@ -44,20 +85,21 @@ def audio_trans(
     """
     Transcribe an uploaded audio file to text.
 
+    The response format is determined by the `Accept` request header:
+    - `application/json` (default): JSON object with transcription result and metadata.
+    - `text/plain`: Raw transcription text.
+    - `text/srt`: SRT file download. The `Content-Disposition` filename is derived from the
+      uploaded file name (e.g. `nagranie.mp3` → `nagranie.srt`).
+      Requires `transcription_response_format=srt` in the form data.
+
     Parameters:
     - uploaded_file (UploadFile): The audio file to be transcribed.
     - lang (LANG_CODE): The language of the input audio in ISO-639-1 format.
     - transcription_response_format (WHISPER_RESPONSE_FORMAT): The desired format of the transcription response (default: SRT).
 
-    Returns:
-    - TranscriptionResult: The transcription result, including the transcribed text and format.
-
     Raises:
-    - HTTPException 400: If the uploaded file is not a valid audio file.
-
-    Description:
-    This endpoint accepts an audio file via multipart form-data, transcribes it to text, and returns the result.
-    The transcription can be returned as plain text or JSON based on the Accept header in the request.
+    - HTTP 400: If the uploaded file is not a valid audio file or has an unsupported extension.
+    - HTTP 500: If an unexpected error occurs during transcription.
     """
     logging.info(f"audio transcribe api - file name: {uploaded_file.filename}, "
         f" content_type: {uploaded_file.content_type}, transcription response format: ${transcription_response_format}")
@@ -128,7 +170,43 @@ def audio_trans(
             error="An error occurred while processing the audio file",
         )
 
-@a_router.post("/summary", response_model=SummaryResult)
+@a_router.post(
+    "/summary",
+    response_model=SummaryResult,
+    responses={
+        200: {
+            "description": "Summary result. Content type depends on the `Accept` request header.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/SummaryResult"},
+                    "example": {"summary": "The speaker discusses the key points of the meeting..."},
+                },
+                "text/plain": {
+                    "schema": {"type": "string"},
+                    "example": "The speaker discusses the key points of the meeting...",
+                },
+            },
+        },
+        400: {
+            "description": "Invalid file type or extension.",
+            "content": {
+                "application/json": {
+                    "schema": {"type": "object", "properties": {"error": {"type": "string"}}},
+                    "example": {"error": "Invalid file type. Only audio files are accepted"},
+                }
+            },
+        },
+        500: {
+            "description": "Internal server error during transcription or summarization.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/SummaryResult"},
+                    "example": {"result": False, "error": "An error occurred while processing the audio file", "summary": None},
+                }
+            },
+        },
+    },
+)
 def audio_summarize(
         uploaded_file: UploadFile,
         type: Annotated[SUMMARIZATION_TYPE, Form()],
@@ -138,22 +216,20 @@ def audio_summarize(
         current_user: User = Depends(get_current_active_user)
 ):
     """
-    Summarize an uploaded audio file.
+    Transcribe and summarize an uploaded audio file.
+
+    The response format is determined by the `Accept` request header:
+    - `application/json` (default): JSON object containing the generated summary.
+    - `text/plain`: Raw summary text.
 
     Parameters:
     - uploaded_file (UploadFile): The audio file to be summarized.
-    - type (SUMMARIZATION_TYPE): The type of summary to generate.
+    - type (SUMMARIZATION_TYPE): The type of summary to generate (concise, tldr, detailed).
     - lang (LANG_CODE): The language of the input audio and desired summary in ISO-639-1 format.
 
-    Returns:
-    - SummaryResult: The generated summary of the audio content.
-
     Raises:
-    - HTTPException 400: If the uploaded file is not a valid audio file.
-
-    Description:
-    This endpoint accepts an audio file via multipart form-data, transcribes it, and then generates a summary of the content.
-    The summary can be returned as plain text or JSON based on the Accept header in the request.
+    - HTTP 400: If the uploaded file is not a valid audio file or has an unsupported extension.
+    - HTTP 500: If an unexpected error occurs during transcription or summarization.
     """
     process_id = None
 
@@ -283,7 +359,57 @@ def transcribe_file(save_path: str, file: str):
         raise
 
 
-@a_router.post("/recursive", response_model=ApiProcessingResult)
+@a_router.post(
+    "/recursive",
+    response_model=ApiProcessingResult,
+    responses={
+        200: {
+            "description": "Batch transcription result for all audio files found in the directory.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ApiProcessingResult"},
+                    "example": {"result": True, "error": None, "text": "Processed 5 audio files. Successful: 5. Failed: 0."},
+                }
+            },
+        },
+        207: {
+            "description": "Partial success — some files failed to transcribe.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ApiProcessingResult"},
+                    "example": {"result": False, "error": "Some files failed to transcribe", "text": "Processed 5 audio files. Successful: 3. Failed: 2. Failed files: /path/a.mp3, /path/b.wav"},
+                }
+            },
+        },
+        400: {
+            "description": "Directory does not exist or path is not a directory.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ApiProcessingResult"},
+                    "example": {"result": False, "error": "Directory does not exist: /some/path", "text": None},
+                }
+            },
+        },
+        403: {
+            "description": "Endpoint not available in non-local mode.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ApiProcessingResult"},
+                    "example": {"result": False, "error": "Endpoint not available.", "text": None},
+                }
+            },
+        },
+        500: {
+            "description": "Internal server error during recursive transcription.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ApiProcessingResult"},
+                    "example": {"result": False, "error": "An error occurred while processing the directory", "text": None},
+                }
+            },
+        },
+    },
+)
 def audio_recursive_transcribe(
         request: Request,
         recursive_request: RecursiveAudioTranscriptionRequest,

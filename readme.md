@@ -65,16 +65,16 @@ alembic upgrade head
 
 3. Run the application:
 ```bash
-pipenv run uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
 ## Tests
 ### Integration Tests
 ```bash
-pipenv run pytest tests/integration -v
+uv run pytest tests/integration -v
 ```
 
 **Run with coverage:**
 ```bash
-pipenv run pytest tests/integration -v --cov=app --cov-report=term-missing
+uv run pytest tests/integration -v --cov=app --cov-report=term-missing
 ```

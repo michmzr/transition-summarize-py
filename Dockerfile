@@ -1,47 +1,37 @@
-# Use an official Python runtime as a parent image
 FROM python:3.14-slim
 
-# Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV LANG C.UTF-8
-ENV LC_ALL C.UTF-8
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONFAULTHANDLER 1
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONFAULTHANDLER=1
+ENV UV_LINK_MODE=copy
+ENV PATH="/app/.venv/bin:/root/.local/bin:/root/.cargo/bin:${PATH}"
 
 WORKDIR /app
 
-# Copy the project files into the container
-COPY Pipfile Pipfile.lock /app/
-
-# Copy the current directory contents into the container
-COPY . /app/
+ADD https://astral.sh/uv/0.11.16/install.sh /uv-installer.sh
 
 # Install system dependencies and Rust
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     curl \
+    ca-certificates \
     pkg-config \
     libssl-dev \
+    && sh /uv-installer.sh \
+    && rm /uv-installer.sh \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
-    && . $HOME/.cargo/env
+    && . $HOME/.cargo/env \
+    && rm -rf /var/lib/apt/lists/*
 
-#rust & cargo required by jitter package
+# Rust and Cargo are required by the jiter package when a wheel is unavailable.
 
-# Add Rust to PATH
-ENV PATH="/root/.cargo/bin:${PATH}"
+COPY pyproject.toml uv.lock /app/
+RUN uv sync --locked --no-dev --no-install-project
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir --upgrade pipenv
+COPY . /app/
 
-# Install Python packages
-RUN pipenv install --system --deploy
-
-# Copy the start script into the container
-COPY start.sh /app/start.sh
-
-# Expose the port
 EXPOSE 8086
 
-# Set the entry point to the start script
 CMD ["/app/start.sh"]

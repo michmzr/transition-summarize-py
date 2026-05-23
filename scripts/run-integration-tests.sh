@@ -17,10 +17,10 @@ export LANGCHAIN_API_KEY=""
 export OPENAI_API_KEY="test_openai_key"
 
 # Run the tests
-# pipenv run pytest tests/integration -v \
+# uv run pytest tests/integration -v \
 #     --cov=app \
 #     --cov-report=term-missing:skip-covered \
 #     -m "integration_no_yt" \
 #     --capture=no
 
-pipenv run pytest tests/integration -v
+uv run pytest tests/integration -v

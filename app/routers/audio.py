@@ -256,7 +256,8 @@ def audio_summarize(
             )
 
             # Update status before transcription
-            transcription = transcribe_uploaded_file(uploaded_file, lang, WHISPER_RESPONSE_FORMAT.SRT)
+            transcription = transcribe_uploaded_file(
+                uploaded_file, lang, WHISPER_RESPONSE_FORMAT.TEXT)
             register_process_artifact(
                 current_user, process_id, ProcessArtifactType.TRANSCRIPTION, transcription, ProcessArtifactFormat.TEXT, lang)
 

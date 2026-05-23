@@ -65,7 +65,13 @@ alembic upgrade head
 
 3. Run the application:
 ```bash
-uv run uvicorn app.main:app --reload
+uv run -m app
+```
+
+Domyślnie serwer startuje na `http://127.0.0.1:8000` z automatycznym relodem przy zmianach w katalogu `app/`.
+Port i host można nadpisać zmiennymi środowiskowymi:
+```bash
+HOST=0.0.0.0 PORT=8086 uv run -m app
 ```
 
 ## Tests

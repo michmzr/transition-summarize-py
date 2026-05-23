@@ -10,17 +10,13 @@
             "name": "Debug FastAPI",
             "type": "debugpy",
             "request": "launch",
-            "module": "uvicorn",
-            "args": [
-                "app.main:app",
-                "--host",
-                "0.0.0.0",
-                "--port",
-                "8086",
-                "--reload"
-            ],
+            "module": "app",
             "jinja": true,
             "justMyCode": false,
+            "env": {
+                "HOST": "0.0.0.0",
+                "PORT": "8086"
+            },
             "envFile": "${workspaceFolder}/.env"
         },
         {

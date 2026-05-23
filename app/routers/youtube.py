@@ -213,7 +213,8 @@ def yt_summarize(
 
         if not transcription:
             transcription = yt_transcribe(
-                yt_request.url, save_dir, yt_request.lang, WHISPER_RESPONSE_FORMAT.SRT)
+                yt_request.url, save_dir, yt_request.lang,
+                WHISPER_RESPONSE_FORMAT.TEXT)
 
         register_process_artifact(
             current_user, process_id,

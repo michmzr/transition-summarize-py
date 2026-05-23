@@ -65,16 +65,22 @@ alembic upgrade head
 
 3. Run the application:
 ```bash
-pipenv run uvicorn app.main:app --reload
+uv run -m app
+```
+
+Domyślnie serwer startuje na `http://127.0.0.1:8000` z automatycznym relodem przy zmianach w katalogu `app/`.
+Port i host można nadpisać zmiennymi środowiskowymi:
+```bash
+HOST=0.0.0.0 PORT=8086 uv run -m app
 ```
 
 ## Tests
 ### Integration Tests
 ```bash
-pipenv run pytest tests/integration -v
+uv run pytest tests/integration -v
 ```
 
 **Run with coverage:**
 ```bash
-pipenv run pytest tests/integration -v --cov=app --cov-report=term-missing
+uv run pytest tests/integration -v --cov=app --cov-report=term-missing
 ```

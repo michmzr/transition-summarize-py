@@ -10,16 +10,23 @@ from langchain_core.documents import Document
 from langsmith import traceable
 from langsmith.wrappers import wrap_openai
 
+from app.transcribe.models import (
+    coerce_openai_transcription_response,
+    get_openai_transcription_api_response_format,
+    get_openai_transcription_model,
+)
+
 logger = logging.getLogger(__name__)
 
 
 class OpenAIWhisperParser(BaseBlobParser):
     """Transcribe and parse audio files.
 
-    Audio transcription is with OpenAI Whisper model.
+    Audio transcription uses an OpenAI speech-to-text model.
 
     Args:
         api_key: OpenAI API key
+        model: OpenAI speech-to-text model to use.
         chunk_duration_threshold: minimum duration of a chunk in seconds
             NOTE: According to the OpenAI API, the chunk duration should be at least 0.1
             seconds. If the chunk duration is less or equal than the threshold,
@@ -32,6 +39,7 @@ class OpenAIWhisperParser(BaseBlobParser):
             *,
             chunk_duration_threshold: float = 0.1,
             base_url: Optional[str] = None,
+            model: Optional[str] = None,
             language: Union[str, None] = None,
             prompt: Union[str, None] = None,
             response_format: Union[
@@ -44,9 +52,12 @@ class OpenAIWhisperParser(BaseBlobParser):
         self.base_url = (
             base_url if base_url is not None else os.environ.get("OPENAI_API_BASE")
         )
+        self.model = model or get_openai_transcription_model(response_format)
         self.language = language
         self.prompt = prompt
-        self.response_format = response_format
+        self.requested_response_format = response_format
+        self.response_format = get_openai_transcription_api_response_format(
+            response_format)
         self.temperature = temperature
 
     @property
@@ -121,10 +132,13 @@ class OpenAIWhisperParser(BaseBlobParser):
                     if is_openai_v1():
                         # todo is a bug if response_format is not None, then failing in yield: 132 line
                         transcript = client.audio.transcriptions.create(
-                            model="whisper-1", file=file_obj, **self._create_params
+                            model=self.model, file=file_obj, **self._create_params
                         )
                     else:
-                        transcript = openai.Audio.transcribe("whisper-1", file_obj)
+                        transcript = openai.Audio.transcribe(self.model, file_obj)
+                    transcript = coerce_openai_transcription_response(
+                        transcript, self.requested_response_format
+                    )
                     break
                 except Exception as e:
                     attempts += 1

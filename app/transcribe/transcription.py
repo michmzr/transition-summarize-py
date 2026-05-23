@@ -17,6 +17,11 @@ from pydub import AudioSegment
 from app.cache import conditional_lru_cache
 from app.config import get_downloads_path
 from app.settings import get_settings
+from app.transcribe.models import (
+    coerce_openai_transcription_response,
+    get_openai_transcription_api_response_format,
+    get_openai_transcription_model,
+)
 from app.transcribe.OpenAIWhisperParser import OpenAIWhisperParser
 from app.youtube.loader import YoutubeAudioLoader
 
@@ -628,11 +633,15 @@ def small_file(file: BinaryIO, lang: LANG_CODE = LANG_CODE.ENGLISH, response_for
         f"Transcribing audio file using openai api: '{file}', with lang: '{lang}', response_format: '{response_format}'")
 
     from app.settings import client_openai
+    requested_response_format = convert_response_format(response_format)
+    api_response_format = get_openai_transcription_api_response_format(
+        requested_response_format)
     transcription = client_openai.audio.transcriptions.create(
-        model="whisper-1",
+        model=get_openai_transcription_model(requested_response_format),
         file=file,
         language=lang.value,
-        response_format=convert_response_format(response_format),
+        response_format=api_response_format,
     )
 
-    return transcription
+    return coerce_openai_transcription_response(
+        transcription, requested_response_format)

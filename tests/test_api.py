@@ -8,23 +8,33 @@ from fastapi.testclient import TestClient
 from app import database
 from app.auth import get_password_hash
 from app.main import app
-from app.schema.models import UserDB
+from app.schema.models import UserDB, UserProcessDB, ProcessArtifactDB
 from app.settings import get_settings
 from app.database import get_session_maker
 
 BASE_URL = "http://127.0.0.1:8000/"
 SHORT_YT_VIDEO = "https://www.youtube.com/watch?v=WuciqTSbewY"
+ASGI_TRANSPORT = httpx.ASGITransport(app=app)
 
 client = TestClient(app)
 
 
+def _delete_test_user(db):
+    test_user = db.query(UserDB).filter(UserDB.username == "testuser").first()
+    if not test_user:
+        return
+
+    db.query(ProcessArtifactDB).filter(ProcessArtifactDB.owner_id == test_user.id).delete()
+    db.query(UserProcessDB).filter(UserProcessDB.user_id == test_user.id).delete()
+    db.query(UserDB).filter(UserDB.id == test_user.id).delete()
+    db.commit()
+
+
 @pytest.fixture
 def test_db():
-    # Clean up any existing test user first
     SessionMaker = get_session_maker()
     db = SessionMaker()
-    db.query(UserDB).filter(UserDB.username == "testuser").delete()
-    db.commit()
+    _delete_test_user(db)
 
     # Create test user
     hashed_password = get_password_hash("testpass123")
@@ -39,15 +49,13 @@ def test_db():
 
     yield db
 
-    # Cleanup after test
-    db.query(UserDB).filter(UserDB.username == "testuser").delete()
-    db.commit()
+    _delete_test_user(db)
     db.close()
 
 
 @pytest.fixture
 async def auth_token(test_db):
-    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
+    async with httpx.AsyncClient(transport=ASGI_TRANSPORT, base_url=BASE_URL) as ac:
         response = await ac.post(
             "/auth/token",
             data={"username": "testuser", "password": "testpass123"}
@@ -104,7 +112,7 @@ async def test_audio_transcribe_invalid_file(auth_headers):
 @pytest.mark.asyncio
 @pytest.mark.integration_no_yt
 async def test_given_audio_file_expect_non_empty_summary(auth_token):
-    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
+    async with httpx.AsyncClient(transport=ASGI_TRANSPORT, base_url=BASE_URL) as ac:
         with open('tests/resources/audio_short.mp3', 'rb') as f:
             response = await ac.post(
                 "/api/audio/summary",
@@ -119,7 +127,7 @@ async def test_given_audio_file_expect_non_empty_summary(auth_token):
 
 @pytest.mark.asyncio
 async def test_given_url_expect_non_empty_transcription(auth_token):
-    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
+    async with httpx.AsyncClient(transport=ASGI_TRANSPORT, base_url=BASE_URL) as ac:
         response = await ac.post(
             "/api/youtube/transcribe",
             json={"url": SHORT_YT_VIDEO, "lang": "en"},
@@ -134,7 +142,7 @@ async def test_given_url_expect_non_empty_transcription(auth_token):
 
 @pytest.mark.asyncio
 async def test_given_url_expect_non_empty_summary(auth_token):
-    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as ac:
+    async with httpx.AsyncClient(transport=ASGI_TRANSPORT, base_url=BASE_URL) as ac:
         response = await ac.post(
             "/api/youtube/summarize",
             json={"url": SHORT_YT_VIDEO, "type": "tldr", "lang": "pl"},

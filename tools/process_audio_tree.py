@@ -332,6 +332,7 @@ def main() -> int:
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
     parser.add_argument("--transcribe-format-field", default="response_format")
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--from-index", type=int, default=1)
     parser.add_argument("--health-only", action="store_true")
     args = parser.parse_args()
 
@@ -351,6 +352,8 @@ def main() -> int:
         return 0
 
     audio_files = discover_audio_files(root)
+    if args.from_index > 1:
+        audio_files = audio_files[args.from_index - 1 :]
     if args.limit > 0:
         audio_files = audio_files[: args.limit]
     print(f"FOUND_AUDIO_FILES {len(audio_files)}", flush=True)

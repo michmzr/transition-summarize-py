@@ -259,3 +259,7 @@ cython_debug/
 
 ./scripts/data/chunks
 ./scripts/data/chunks/*
+
+tmp
+
+.idea

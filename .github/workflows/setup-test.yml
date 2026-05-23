@@ -66,13 +66,6 @@ jobs:
 
           # Test environment indicator
           TESTING: true
-
-          # Let testcontainers handle all database configuration
-          POSTGRES_HOST: ""  # Will be set by testcontainers
-          POSTGRES_PORT: ""  # Will be set by testcontainers
-          POSTGRES_USER: ""  # Will be set by testcontainers
-          POSTGRES_PASSWORD: ""  # Will be set by testcontainers
-          POSTGRES_DB: ""  # Will be set by testcontainers
         run: |
           echo "Installing dependencies..."
           pipenv --python ${{ env.pythonLocation }}/bin/python install

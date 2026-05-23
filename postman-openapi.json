@@ -1,0 +1,2361 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Transition summarize API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/auth/token": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Login For Access Token",
+        "operationId": "login_for_access_token_auth_token_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_login_for_access_token_auth_token_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Register User",
+        "operationId": "register_user_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/users/me/": {
+      "get": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Read Users Me",
+        "operationId": "read_users_me_auth_users_me__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/youtube/transcribe": {
+      "post": {
+        "tags": [
+          "youtube",
+          "transcription",
+          "summarization"
+        ],
+        "summary": "Yt Transcription",
+        "description": "Transcribe a YouTube video.\n\nThe response format is determined by the `Accept` request header:\n- `application/json` (default): JSON object with transcription result and metadata.\n- `text/plain`: Raw transcription text.\n\nArgs:\n    yt_request (YTVideoTranscribe): YouTube video URL, language code, and desired response format.\n\nRaises:\n    HTTP 500: If an unexpected error occurs during transcription.",
+        "operationId": "yt_transcription_youtube_transcribe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/YTVideoTranscribe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Transcription result. Content type depends on the `Accept` request header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": true,
+                  "transcription": "1\n00:00:01,000 --> 00:00:05,000\nHello world",
+                  "format": "srt"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "1\n00:00:01,000 --> 00:00:05,000\nHello world"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error during transcription.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "Internal server error: <details>"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/youtube/summarize": {
+      "post": {
+        "tags": [
+          "youtube",
+          "transcription",
+          "summarization"
+        ],
+        "summary": "Yt Summarize",
+        "description": "Transcribe and summarize a YouTube video.\n\nThe response format is determined by the `Accept` request header:\n- `application/json` (default): JSON object containing the generated summary.\n- `text/plain`: Raw summary text.\n- `text/srt`: SRT subtitle file of the video transcription used for summarization.\n\nArgs:\n    yt_request (YtVideoSummarize): YouTube video URL, summarization type, language code, and whether to use existing YT transcription.\n\nRaises:\n    HTTP 500: If an unexpected error occurs during transcription or summarization.",
+        "operationId": "yt_summarize_youtube_summarize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/YtVideoSummarize"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Summarization result. Content type depends on the `Accept` request header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryResult"
+                },
+                "example": {
+                  "summary": "The video covers the main highlights of the event..."
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "The video covers the main highlights of the event..."
+              },
+              "text/srt": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                },
+                "example": "1\n00:00:01,000 --> 00:00:05,000\nHello world"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error during transcription or summarization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "Error processing YouTube summarization",
+                  "text": "<error details>"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/youtube/details": {
+      "post": {
+        "tags": [
+          "youtube",
+          "transcription",
+          "summarization"
+        ],
+        "summary": "Yt Details",
+        "description": "Get detailed metadata for a YouTube video.\n\nReturns a `YoutubeMetadata` JSON object on success, including title, duration,\ndescription, channel URL, available subtitles and transcription languages, upload date, and thumbnail URL.\n\nArgs:\n    request (YtVideoInfoRequest): Request body containing the YouTube video URL.\n\nRaises:\n    HTTP 500: If an unexpected error occurs while fetching video metadata.",
+        "operationId": "yt_details_youtube_details_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/YtVideoInfoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "YouTube video metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/YoutubeMetadata",
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/YoutubeMetadata"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiProcessingResult"
+                    }
+                  ],
+                  "title": "Response Yt Details Youtube Details Post"
+                },
+                "example": {
+                  "title": "Example Video",
+                  "full_title": "Example Video — Full Title",
+                  "duration": 120.0,
+                  "duration_string": "2:00",
+                  "description": "Video description here.",
+                  "channel_url": "https://www.youtube.com/@example",
+                  "language": "en",
+                  "subtitles": {},
+                  "available_transcriptions": [
+                    "en",
+                    "pl"
+                  ],
+                  "upload_date": "2024-01-15T00:00:00",
+                  "thumbnail": "https://i.ytimg.com/vi/example/maxresdefault.jpg"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error while fetching video metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "Error processing YouTube details extraction: <details>",
+                  "text": "<details>"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/audio/transcribe": {
+      "post": {
+        "tags": [
+          "audio",
+          "transcription",
+          "summarization"
+        ],
+        "summary": "Audio Trans",
+        "description": "Transcribe an uploaded audio file to text.\n\nThe response format is determined by the `Accept` request header:\n- `application/json` (default): JSON object with transcription result and metadata.\n- `text/plain`: Raw transcription text.\n- `text/srt`: SRT file download. The `Content-Disposition` filename is derived from the\n  uploaded file name (e.g. `nagranie.mp3` → `nagranie.srt`).\n  Requires `transcription_response_format=srt` in the form data.\n\nParameters:\n- uploaded_file (UploadFile): The audio file to be transcribed.\n- lang (LANG_CODE): The language of the input audio in ISO-639-1 format.\n- transcription_response_format (WHISPER_RESPONSE_FORMAT): The desired format of the transcription response (default: SRT).\n\nRaises:\n- HTTP 400: If the uploaded file is not a valid audio file or has an unsupported extension.\n- HTTP 500: If an unexpected error occurs during transcription.",
+        "operationId": "audio_trans_audio_transcribe_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_audio_trans_audio_transcribe_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Transcription result. Content type depends on the `Accept` request header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": true,
+                  "transcription": "1\n00:00:01,000 --> 00:00:05,000\nHello world",
+                  "format": "srt"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "1\n00:00:01,000 --> 00:00:05,000\nHello world"
+              },
+              "text/srt": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                },
+                "example": "1\n00:00:01,000 --> 00:00:05,000\nHello world",
+                "description": "SRT file download. Returned when `Accept: text/srt` and `transcription_response_format=srt`. The filename in `Content-Disposition` is derived from the uploaded file name (e.g. `nagranie.mp3` → `nagranie.srt`)."
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid file type or extension.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "Invalid file type. Only audio files are accepted"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error during transcription.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "An error occurred while processing the audio file"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/audio/summary": {
+      "post": {
+        "tags": [
+          "audio",
+          "transcription",
+          "summarization"
+        ],
+        "summary": "Audio Summarize",
+        "description": "Transcribe and summarize an uploaded audio file.\n\nThe response format is determined by the `Accept` request header:\n- `application/json` (default): JSON object containing the generated summary.\n- `text/plain`: Raw summary text.\n\nParameters:\n- uploaded_file (UploadFile): The audio file to be summarized.\n- type (SUMMARIZATION_TYPE): The type of summary to generate (concise, tldr, detailed).\n- lang (LANG_CODE): The language of the input audio and desired summary in ISO-639-1 format.\n\nRaises:\n- HTTP 400: If the uploaded file is not a valid audio file or has an unsupported extension.\n- HTTP 500: If an unexpected error occurs during transcription or summarization.",
+        "operationId": "audio_summarize_audio_summary_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_audio_summarize_audio_summary_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Summary result. Content type depends on the `Accept` request header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryResult"
+                },
+                "example": {
+                  "summary": "The speaker discusses the key points of the meeting..."
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "The speaker discusses the key points of the meeting..."
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid file type or extension.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "example": {
+                  "error": "Invalid file type. Only audio files are accepted"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error during transcription or summarization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "An error occurred while processing the audio file"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/audio/recursive": {
+      "post": {
+        "tags": [
+          "audio",
+          "transcription",
+          "summarization"
+        ],
+        "summary": "Audio Recursive Transcribe",
+        "operationId": "audio_recursive_transcribe_audio_recursive_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecursiveAudioTranscriptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Batch transcription result for all audio files found in the directory.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": true,
+                  "text": "Processed 5 audio files. Successful: 5. Failed: 0."
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some files failed to transcribe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "Some files failed to transcribe",
+                  "text": "Processed 5 audio files. Successful: 3. Failed: 2. Failed files: /path/a.mp3, /path/b.wav"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Directory does not exist or path is not a directory.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "Directory does not exist: /some/path"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Endpoint not available in non-local mode.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "Endpoint not available."
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error during recursive transcription.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "An error occurred while processing the directory"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/artifacts/": {
+      "get": {
+        "tags": [
+          "artifacts"
+        ],
+        "summary": "List Artifacts",
+        "description": "List all process artifacts with optional filtering.",
+        "operationId": "list_artifacts_artifacts__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "artifact_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Artifact Type"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 10,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ArtifactResponse"
+                  },
+                  "title": "Response List Artifacts Artifacts  Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/artifacts/{artifact_id}": {
+      "get": {
+        "tags": [
+          "artifacts"
+        ],
+        "summary": "Get Artifact",
+        "description": "Get a specific artifact by ID.",
+        "operationId": "get_artifact_artifacts__artifact_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Artifact Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/artifacts/{artifact_id}/content": {
+      "get": {
+        "tags": [
+          "artifacts"
+        ],
+        "summary": "Get Artifact Content",
+        "description": "Get the content of an artifact in chunks to handle large texts efficiently.",
+        "operationId": "get_artifact_content_artifacts__artifact_id__content_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Artifact Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Start"
+            }
+          },
+          {
+            "name": "chunk_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50000,
+              "minimum": 1,
+              "default": 10000,
+              "title": "Chunk Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/url-list": {
+      "get": {
+        "summary": "Get All Urls",
+        "operationId": "get_all_urls_url_list_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/audio/transcribe": {
+      "post": {
+        "tags": [
+          "audio",
+          "transcription",
+          "summarization"
+        ],
+        "summary": "Audio Trans",
+        "description": "Transcribe an uploaded audio file to text.\n\nThe response format is determined by the `Accept` request header:\n- `application/json` (default): JSON object with transcription result and metadata.\n- `text/plain`: Raw transcription text.\n- `text/srt`: SRT file download. The `Content-Disposition` filename is derived from the\n  uploaded file name (e.g. `nagranie.mp3` → `nagranie.srt`).\n  Requires `transcription_response_format=srt` in the form data.\n\nParameters:\n- uploaded_file (UploadFile): The audio file to be transcribed.\n- lang (LANG_CODE): The language of the input audio in ISO-639-1 format.\n- transcription_response_format (WHISPER_RESPONSE_FORMAT): The desired format of the transcription response (default: SRT).\n\nRaises:\n- HTTP 400: If the uploaded file is not a valid audio file or has an unsupported extension.\n- HTTP 500: If an unexpected error occurs during transcription.",
+        "operationId": "api_audio_trans_audio_transcribe_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_audio_trans_audio_transcribe_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Transcription result. Content type depends on the `Accept` request header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": true,
+                  "transcription": "1\n00:00:01,000 --> 00:00:05,000\nHello world",
+                  "format": "srt"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "1\n00:00:01,000 --> 00:00:05,000\nHello world"
+              },
+              "text/srt": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                },
+                "example": "1\n00:00:01,000 --> 00:00:05,000\nHello world",
+                "description": "SRT file download. Returned when `Accept: text/srt` and `transcription_response_format=srt`. The filename in `Content-Disposition` is derived from the uploaded file name (e.g. `nagranie.mp3` → `nagranie.srt`)."
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid file type or extension.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "Invalid file type. Only audio files are accepted"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error during transcription.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "An error occurred while processing the audio file"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/audio/summary": {
+      "post": {
+        "tags": [
+          "audio",
+          "transcription",
+          "summarization"
+        ],
+        "summary": "Audio Summarize",
+        "description": "Transcribe and summarize an uploaded audio file.\n\nThe response format is determined by the `Accept` request header:\n- `application/json` (default): JSON object containing the generated summary.\n- `text/plain`: Raw summary text.\n\nParameters:\n- uploaded_file (UploadFile): The audio file to be summarized.\n- type (SUMMARIZATION_TYPE): The type of summary to generate (concise, tldr, detailed).\n- lang (LANG_CODE): The language of the input audio and desired summary in ISO-639-1 format.\n\nRaises:\n- HTTP 400: If the uploaded file is not a valid audio file or has an unsupported extension.\n- HTTP 500: If an unexpected error occurs during transcription or summarization.",
+        "operationId": "api_audio_summarize_audio_summary_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_audio_summarize_audio_summary_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Summary result. Content type depends on the `Accept` request header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryResult"
+                },
+                "example": {
+                  "summary": "The speaker discusses the key points of the meeting..."
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "The speaker discusses the key points of the meeting..."
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid file type or extension.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "example": {
+                  "error": "Invalid file type. Only audio files are accepted"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error during transcription or summarization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "An error occurred while processing the audio file"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/audio/recursive": {
+      "post": {
+        "tags": [
+          "audio",
+          "transcription",
+          "summarization"
+        ],
+        "summary": "Audio Recursive Transcribe",
+        "operationId": "api_audio_recursive_transcribe_audio_recursive_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecursiveAudioTranscriptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Batch transcription result for all audio files found in the directory.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": true,
+                  "text": "Processed 5 audio files. Successful: 5. Failed: 0."
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Partial success — some files failed to transcribe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "Some files failed to transcribe",
+                  "text": "Processed 5 audio files. Successful: 3. Failed: 2. Failed files: /path/a.mp3, /path/b.wav"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Directory does not exist or path is not a directory.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "Directory does not exist: /some/path"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Endpoint not available in non-local mode.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "Endpoint not available."
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error during recursive transcription.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "An error occurred while processing the directory"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/youtube/transcribe": {
+      "post": {
+        "tags": [
+          "youtube",
+          "transcription",
+          "summarization"
+        ],
+        "summary": "Yt Transcription",
+        "description": "Transcribe a YouTube video.\n\nThe response format is determined by the `Accept` request header:\n- `application/json` (default): JSON object with transcription result and metadata.\n- `text/plain`: Raw transcription text.\n\nArgs:\n    yt_request (YTVideoTranscribe): YouTube video URL, language code, and desired response format.\n\nRaises:\n    HTTP 500: If an unexpected error occurs during transcription.",
+        "operationId": "api_yt_transcription_youtube_transcribe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/YTVideoTranscribe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Transcription result. Content type depends on the `Accept` request header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": true,
+                  "transcription": "1\n00:00:01,000 --> 00:00:05,000\nHello world",
+                  "format": "srt"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "1\n00:00:01,000 --> 00:00:05,000\nHello world"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error during transcription.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "Internal server error: <details>"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/youtube/summarize": {
+      "post": {
+        "tags": [
+          "youtube",
+          "transcription",
+          "summarization"
+        ],
+        "summary": "Yt Summarize",
+        "description": "Transcribe and summarize a YouTube video.\n\nThe response format is determined by the `Accept` request header:\n- `application/json` (default): JSON object containing the generated summary.\n- `text/plain`: Raw summary text.\n- `text/srt`: SRT subtitle file of the video transcription used for summarization.\n\nArgs:\n    yt_request (YtVideoSummarize): YouTube video URL, summarization type, language code, and whether to use existing YT transcription.\n\nRaises:\n    HTTP 500: If an unexpected error occurs during transcription or summarization.",
+        "operationId": "api_yt_summarize_youtube_summarize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/YtVideoSummarize"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Summarization result. Content type depends on the `Accept` request header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryResult"
+                },
+                "example": {
+                  "summary": "The video covers the main highlights of the event..."
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "The video covers the main highlights of the event..."
+              },
+              "text/srt": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                },
+                "example": "1\n00:00:01,000 --> 00:00:05,000\nHello world"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error during transcription or summarization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "Error processing YouTube summarization",
+                  "text": "<error details>"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/youtube/details": {
+      "post": {
+        "tags": [
+          "youtube",
+          "transcription",
+          "summarization"
+        ],
+        "summary": "Yt Details",
+        "description": "Get detailed metadata for a YouTube video.\n\nReturns a `YoutubeMetadata` JSON object on success, including title, duration,\ndescription, channel URL, available subtitles and transcription languages, upload date, and thumbnail URL.\n\nArgs:\n    request (YtVideoInfoRequest): Request body containing the YouTube video URL.\n\nRaises:\n    HTTP 500: If an unexpected error occurs while fetching video metadata.",
+        "operationId": "api_yt_details_youtube_details_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/YtVideoInfoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "YouTube video metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/YoutubeMetadata",
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/YoutubeMetadata"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiProcessingResult"
+                    }
+                  ],
+                  "title": "Response Yt Details Youtube Details Post"
+                },
+                "example": {
+                  "title": "Example Video",
+                  "full_title": "Example Video — Full Title",
+                  "duration": 120.0,
+                  "duration_string": "2:00",
+                  "description": "Video description here.",
+                  "channel_url": "https://www.youtube.com/@example",
+                  "language": "en",
+                  "subtitles": {},
+                  "available_transcriptions": [
+                    "en",
+                    "pl"
+                  ],
+                  "upload_date": "2024-01-15T00:00:00",
+                  "thumbnail": "https://i.ytimg.com/vi/example/maxresdefault.jpg"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error while fetching video metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProcessingResult"
+                },
+                "example": {
+                  "result": false,
+                  "error": "Error processing YouTube details extraction: <details>",
+                  "text": "<details>"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/artifacts/": {
+      "get": {
+        "tags": [
+          "artifacts"
+        ],
+        "summary": "List Artifacts",
+        "description": "List all process artifacts with optional filtering.",
+        "operationId": "api_list_artifacts_artifacts__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "artifact_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Artifact Type"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 10,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ArtifactResponse"
+                  },
+                  "title": "Response List Artifacts Artifacts  Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/artifacts/{artifact_id}": {
+      "get": {
+        "tags": [
+          "artifacts"
+        ],
+        "summary": "Get Artifact",
+        "description": "Get a specific artifact by ID.",
+        "operationId": "api_get_artifact_artifacts__artifact_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Artifact Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/artifacts/{artifact_id}/content": {
+      "get": {
+        "tags": [
+          "artifacts"
+        ],
+        "summary": "Get Artifact Content",
+        "description": "Get the content of an artifact in chunks to handle large texts efficiently.",
+        "operationId": "api_get_artifact_content_artifacts__artifact_id__content_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Artifact Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Start"
+            }
+          },
+          {
+            "name": "chunk_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50000,
+              "minimum": 1,
+              "default": 10000,
+              "title": "Chunk Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiProcessingResult": {
+        "properties": {
+          "result": {
+            "type": "boolean",
+            "title": "Success or error"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error description"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video transcription"
+          }
+        },
+        "type": "object",
+        "required": [
+          "result",
+          "error",
+          "text"
+        ],
+        "title": "ApiProcessingResult"
+      },
+      "ArtifactResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Request Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "result_format": {
+            "type": "string",
+            "title": "Result Format"
+          },
+          "lang": {
+            "type": "string",
+            "title": "Lang"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "source_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source File"
+          },
+          "source_file_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source File Size"
+          },
+          "source_file_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source File Type"
+          },
+          "result_preview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Preview"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "request_id",
+          "type",
+          "result_format",
+          "lang",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ArtifactResponse"
+      },
+      "Body_audio_summarize_audio_summary_post": {
+        "properties": {
+          "uploaded_file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Uploaded File"
+          },
+          "type": {
+            "$ref": "#/components/schemas/SUMMARIZATION_TYPE"
+          },
+          "lang": {
+            "$ref": "#/components/schemas/LANG_CODE"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uploaded_file",
+          "type",
+          "lang"
+        ],
+        "title": "Body_audio_summarize_audio_summary_post"
+      },
+      "Body_audio_trans_audio_transcribe_post": {
+        "properties": {
+          "uploaded_file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Uploaded File"
+          },
+          "lang": {
+            "$ref": "#/components/schemas/LANG_CODE"
+          },
+          "transcription_response_format": {
+            "$ref": "#/components/schemas/WHISPER_RESPONSE_FORMAT",
+            "default": "srt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uploaded_file",
+          "lang"
+        ],
+        "title": "Body_audio_trans_audio_transcribe_post"
+      },
+      "Body_login_for_access_token_auth_token_post": {
+        "properties": {
+          "grant_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^password$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grant Type"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "title": "Password"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "default": ""
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "format": "password",
+            "title": "Client Secret"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "Body_login_for_access_token_auth_token_post"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LANG_CODE": {
+        "type": "string",
+        "enum": [
+          "en",
+          "pl"
+        ],
+        "title": "LANG_CODE"
+      },
+      "RecursiveAudioTranscriptionRequest": {
+        "properties": {
+          "directory_path": {
+            "type": "string",
+            "title": "Directory Path"
+          },
+          "lang": {
+            "$ref": "#/components/schemas/LANG_CODE",
+            "default": "pl"
+          }
+        },
+        "type": "object",
+        "required": [
+          "directory_path"
+        ],
+        "title": "RecursiveAudioTranscriptionRequest"
+      },
+      "SUMMARIZATION_TYPE": {
+        "type": "string",
+        "enum": [
+          "concise",
+          "tldr",
+          "detailed"
+        ],
+        "title": "SUMMARIZATION_TYPE"
+      },
+      "SummaryResult": {
+        "properties": {
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary"
+        ],
+        "title": "SummaryResult"
+      },
+      "Token": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "token_type"
+        ],
+        "title": "Token"
+      },
+      "User": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "email",
+          "id",
+          "is_active"
+        ],
+        "title": "User"
+      },
+      "UserCreate": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "email",
+          "password"
+        ],
+        "title": "UserCreate"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WHISPER_RESPONSE_FORMAT": {
+        "type": "string",
+        "enum": [
+          "json",
+          "text",
+          "srt",
+          "verbose_json",
+          "vtt"
+        ],
+        "title": "WHISPER_RESPONSE_FORMAT"
+      },
+      "YTVideoTranscribe": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "lang": {
+            "$ref": "#/components/schemas/LANG_CODE"
+          },
+          "response_format": {
+            "$ref": "#/components/schemas/WHISPER_RESPONSE_FORMAT",
+            "title": "Response format",
+            "default": "srt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "YTVideoTranscribe",
+        "examples": [
+          {
+            "lang": "pl",
+            "response_format": "srt",
+            "url": "https://www.youtube.com/shorts/tvPMT89eJWo"
+          }
+        ]
+      },
+      "YoutubeMetadata": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "The title of the YouTube video",
+            "default": ""
+          },
+          "full_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Title",
+            "description": "The full title of the YouTube video, which may include additional information"
+          },
+          "filesize": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filesize",
+            "description": "The size of the video file in bytes"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration",
+            "description": "The duration of the video in seconds"
+          },
+          "duration_string": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration String",
+            "description": "A human-readable string representation of the video duration"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "The description of the YouTube video",
+            "default": ""
+          },
+          "channel_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel Url",
+            "description": "The URL of the YouTube channel that uploaded the video"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language",
+            "description": "The primary language of the video content"
+          },
+          "subtitles": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/YoutubeTranscriptionMetadata"
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Subtitles",
+            "description": "A dictionary of available subtitles, organized by language code and file extension"
+          },
+          "available_transcriptions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Available Transcriptions",
+            "description": "A list of available transcription languages"
+          },
+          "upload_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Date",
+            "description": "The date and time when the video was uploaded"
+          },
+          "thumbnail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail",
+            "description": "The URL of the video thumbnail image"
+          }
+        },
+        "type": "object",
+        "title": "YoutubeMetadata"
+      },
+      "YoutubeTranscriptionMetadata": {
+        "properties": {
+          "ext": {
+            "type": "string",
+            "title": "Ext",
+            "description": "File extension of the transcription"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "URL to access the transcription"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Name or language of the transcription"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ext",
+          "url",
+          "name"
+        ],
+        "title": "YoutubeTranscriptionMetadata"
+      },
+      "YtVideoInfoRequest": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "YtVideoInfoRequest",
+        "description": "Request model for acquiring youtube video details like title, description, list of subtitles",
+        "examples": [
+          {
+            "url": "https://www.youtube.com/shorts/tvPMT89eJWo"
+          }
+        ]
+      },
+      "YtVideoSummarize": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "type": {
+            "$ref": "#/components/schemas/SUMMARIZATION_TYPE",
+            "title": "Type of summarization",
+            "default": "tldr"
+          },
+          "lang": {
+            "$ref": "#/components/schemas/LANG_CODE",
+            "title": "Language code of transcription and final summarization text",
+            "default": "pl"
+          },
+          "use_yt_transcription": {
+            "type": "boolean",
+            "title": "Use YT transcription or generate new one. If YT transcription is nto found then transcription will be generated",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "YtVideoSummarize",
+        "description": "Request model for summarizing YouTube video\n\nlang: The language of the input audio. Supplying the input language in\n          [ISO-639-1](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) format will\n          improve accuracy and latency.",
+        "examples": [
+          {
+            "lang": "pl",
+            "type": "detailed",
+            "url": "https://www.youtube.com/shorts/tvPMT89eJWo",
+            "use_yt_transcription": true
+          }
+        ]
+      }
+    },
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "type": "oauth2",
+        "flows": {
+          "password": {
+            "scopes": {},
+            "tokenUrl": "auth/token"
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8086"
+    }
+  ],
+  "tags": []
+}

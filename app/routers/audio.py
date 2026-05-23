@@ -107,7 +107,6 @@ def audio_trans(
     process_id = None
     try:
         if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video"):
-            update_process_status(process_id, "failed", "Invalid file type")
             response.status_code = status.HTTP_400_BAD_REQUEST
             return ApiProcessingResult(
                 result=False,
@@ -115,8 +114,6 @@ def audio_trans(
             )
 
         if not uploaded_file.filename.endswith(VALID_AUDIO_EXTENSIONS):
-            update_process_status(process_id, "failed", f"Invalid file extension")
-
             response.status_code = status.HTTP_400_BAD_REQUEST
             return ApiProcessingResult(result=False,
                                     error=f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted",
@@ -239,12 +236,10 @@ def audio_summarize(
         try:
             # check if file is audio
             if not uploaded_file.content_type.startswith("audio") and not uploaded_file.content_type.startswith("video"):
-                update_process_status(process_id, "failed", "Invalid file type")
                 response.status_code = status.HTTP_400_BAD_REQUEST
                 return {"error": "Invalid file type. Only audio files are accepted"}
 
             if not uploaded_file.filename.endswith(VALID_AUDIO_EXTENSIONS):
-                update_process_status(process_id, "failed", f"Invalid file extension")
                 response.status_code = status.HTTP_400_BAD_REQUEST
                 return {"error": f"Invalid file type. Only {VALID_AUDIO_EXTENSIONS} files are accepted"}
 
@@ -282,8 +277,8 @@ def audio_summarize(
             else:
                 return SummaryResult(summary=summary)
         except Exception as e:
-            # Update process status on error
-            update_process_status(process_id, "failed", str(e))
+            if process_id:
+                process_failed(process_id, str(e))
             raise
     except Exception as e:
         logging.error(f"Error in audio summarize endpoint: {str(e)}", exc_info=True)

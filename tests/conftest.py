@@ -1,6 +1,5 @@
 import os
 import sys
-import time
 import logging
 
 import pytest
@@ -8,7 +7,6 @@ from sqlalchemy import text
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from testcontainers.postgres import PostgresContainer
-import alembic.config
 
 # Get the absolute path of the project root directory
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -24,13 +22,21 @@ testcontainers_logger = logging.getLogger("testcontainers")
 testcontainers_logger.setLevel(logging.DEBUG)
 
 @pytest.fixture(scope="session", autouse=True)
-def setup_test_db(postgres_container):
-    # Setup
-    db = database.get_session_maker()()
+def setup_test_db(postgres_container, engine):
+    from app.schema.models import Base
+
+    Base.metadata.create_all(bind=engine)
+
+    testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    database._engine = engine
+    database._SessionLocal = testing_session_local
+    database.engine = engine
+    database.SessionLocal = testing_session_local
+
+    db = testing_session_local()
 
     yield db
 
-    # Cleanup - truncate all tables
     try:
         print("Truncating test tables")
         db.execute(text('''
@@ -63,74 +69,55 @@ def override_settings():
     
     return settings
 
+def _clear_empty_postgres_env_vars() -> None:
+    for key in ("POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "POSTGRES_HOST", "POSTGRES_PORT"):
+        if os.environ.get(key) == "":
+            os.environ.pop(key, None)
+
+
+def _print_postgres_logs(container: PostgresContainer) -> None:
+    if not container._container:
+        return
+    stdout, stderr = container.get_logs()
+    print("\n=== PostgreSQL Container Logs ===")
+    print(stdout.decode())
+    if stderr:
+        print(stderr.decode())
+    print("=================================\n")
+
+
 @pytest.fixture(scope="session")
 def postgres_container(override_settings):
-    postgres_container = PostgresContainer("postgres:15-alpine")
-    
-    # Set default PostgreSQL credentials
-    POSTGRES_USER = "postgres"
-    POSTGRES_PASSWORD = "postgres"
-    POSTGRES_DB = "postgres"
-    
-    # Configure container with credentials
-    postgres_container.with_env("POSTGRES_USER", POSTGRES_USER)
-    postgres_container.with_env("POSTGRES_PASSWORD", POSTGRES_PASSWORD)
-    postgres_container.with_env("POSTGRES_DB", POSTGRES_DB)
-    postgres_container.with_env("POSTGRES_HOST_AUTH_METHOD", "trust")
-    
-    # Configure container startup
-    postgres_container.with_env("PGDATA", "/var/lib/postgresql/data")
-    postgres_container.with_env("POSTGRES_INITDB_ARGS", "--auth=trust")
-    postgres_container.start_timeout = 60
-    
-    # Configure health check
-    postgres_container.with_command([
-        "postgres",
-        "-c", "max_connections=100",
-        "-c", "shared_buffers=256MB",
-        "-c", "fsync=off",
-        "-c", "synchronous_commit=off",
-        "-c", "full_page_writes=off"
-    ])
-    
-    # Use random available port
-    postgres_container.with_bind_ports(5432, 0)
-    
+    _clear_empty_postgres_env_vars()
+
+    postgres_user = "postgres"
+    postgres_password = "postgres"
+    postgres_db = "postgres"
+
+    container = PostgresContainer(
+        "postgres:15-alpine",
+        username=postgres_user,
+        password=postgres_password,
+        dbname=postgres_db,
+    )
+
     try:
         testcontainers_logger.info("Starting PostgreSQL container...")
-        postgres_container.start()
-        
-        # Print container logs immediately after start
-        print("\n=== PostgreSQL Container Logs ===")
-        print(postgres_container.get_container().logs().decode())
-        print("=================================\n")
-        
-        # Get the actual port and create database URL
-        actual_port = postgres_container.get_exposed_port(5432)
-        db_url = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:{actual_port}/{POSTGRES_DB}"
-        
-        # Update settings
+        container.start()
+        _print_postgres_logs(container)
+
+        db_url = container.get_connection_url()
         override_settings.database_url = db_url
         os.environ["POSTGRES_URL"] = db_url
-        
-        # Monitor container logs during test execution
-        def print_logs():
-            while True:
-                print(postgres_container.get_container().logs().decode())
-                time.sleep(5)
-        
-        import threading
-        log_thread = threading.Thread(target=print_logs, daemon=True)
-        log_thread.start()
-        
-        yield postgres_container
+
+        yield container
     except Exception as e:
         testcontainers_logger.error(f"Failed to start PostgreSQL container: {e}")
         print("\n=== Error Logs ===")
-        print(postgres_container.get_container().logs().decode())
+        _print_postgres_logs(container)
         raise
     finally:
-        postgres_container.stop()
+        container.stop()
 
 @pytest.fixture(scope="session")
 def db_url(postgres_container):
@@ -138,7 +125,9 @@ def db_url(postgres_container):
 
 @pytest.fixture(scope="session")
 def engine(db_url):
-    return create_engine(db_url)
+    eng = create_engine(db_url)
+    yield eng
+    eng.dispose()
 
 @pytest.fixture(scope="function")
 def db_session(engine):
@@ -153,17 +142,20 @@ def db_session(engine):
 # Override the database.SessionLocal to use test database
 @pytest.fixture(autouse=True)
 def override_db_session(monkeypatch, engine):
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    
+    testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
     def override_get_db():
-        db = TestingSessionLocal()
+        db = testing_session_local()
         try:
             yield db
         finally:
             db.close()
-    
-    from app import database
-    monkeypatch.setattr(database, "SessionLocal", TestingSessionLocal)
+
+    monkeypatch.setattr(database, "_engine", engine)
+    monkeypatch.setattr(database, "_SessionLocal", testing_session_local)
+    monkeypatch.setattr(database, "engine", engine)
+    monkeypatch.setattr(database, "SessionLocal", testing_session_local)
+    monkeypatch.setattr(database, "get_session_maker", lambda: testing_session_local)
 
 @pytest.fixture(scope="function")
 def test_db(postgres_container):

@@ -22,6 +22,8 @@ def register_new_process(user: User, request_type: RequestType, request: Request
                 source_type = UserProcessSourceType.URL
             case RequestType.YOUTUBE:
                 source_type = UserProcessSourceType.URL
+            case RequestType.VIDEO:
+                source_type = UserProcessSourceType.URL
             case _:
                 raise ValueError(f"Invalid request type: {request_type}")
 

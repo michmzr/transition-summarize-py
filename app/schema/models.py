@@ -25,6 +25,7 @@ class RequestType(enum.Enum):
     TEXT = "text"
     FILE = "file"
     YOUTUBE = "youtube"
+    VIDEO = "video"
 
 class RequestStatus(enum.Enum):
     PENDING = "pending"

@@ -10,6 +10,7 @@ from app.routers.audio import a_router
 from app.routers.auth import auth_router
 from app.routers.youtube import yt_router
 from app.routers.artifacts import router as artifacts_router
+from app.routers.video import video_router
 from app.schema import models
 from app.settings import Settings, get_settings
 from app.database import init_db
@@ -47,6 +48,7 @@ protected_app.include_router(a_router)
 protected_app.include_router(yt_router)
 protected_app.include_router(artifacts_router)
 protected_app.include_router(artifacts_router)
+protected_app.include_router(video_router)
 
 # Include the protected app and auth router in the main app
 app.mount("/api", protected_app)
@@ -54,6 +56,7 @@ app.include_router(auth_router)
 app.include_router(yt_router)
 app.include_router(a_router)
 app.include_router(artifacts_router)
+app.include_router(video_router)
 
 # Configure logging with request ID
 logger = logging.getLogger()

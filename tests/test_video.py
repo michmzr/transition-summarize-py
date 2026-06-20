@@ -145,21 +145,21 @@ def test_video_router_has_transcribe_endpoint():
     mod = importlib.import_module("app.routers.video")
     router = mod.video_router
     paths = [route.path for route in router.routes]
-    assert "/transcribe" in paths
+    assert "/video/transcribe" in paths
 
 
 def test_video_router_has_summarize_endpoint():
     mod = importlib.import_module("app.routers.video")
     router = mod.video_router
     paths = [route.path for route in router.routes]
-    assert "/summarize" in paths
+    assert "/video/summarize" in paths
 
 
 def test_video_router_has_details_endpoint():
     mod = importlib.import_module("app.routers.video")
     router = mod.video_router
     paths = [route.path for route in router.routes]
-    assert "/details" in paths
+    assert "/video/details" in paths
 
 
 def test_video_router_prefix():
@@ -180,8 +180,10 @@ def test_video_transcribe_endpoint_success(
     from app.routers.video import video_router
     from app.auth import get_current_active_user
 
-    mock_auth.return_value = MagicMock(id="user-1", username="test", email="t@t.com", is_active=True)
-    mock_register.return_value = "process-uuid-1"
+    user_id = "00000000-0000-0000-0000-000000000001"
+    process_id = "00000000-0000-0000-0000-000000000002"
+    mock_auth.return_value = MagicMock(id=user_id, username="test", email="t@t.com", is_active=True)
+    mock_register.return_value = process_id
     mock_transcribe.return_value = "Transcribed text from Vimeo video."
 
     test_app = FastAPI()
@@ -214,8 +216,10 @@ def test_video_summarize_endpoint_success(
     from app.routers.video import video_router
     from app.auth import get_current_active_user
 
-    mock_auth.return_value = MagicMock(id="user-1", username="test", email="t@t.com", is_active=True)
-    mock_register.return_value = "process-uuid-1"
+    user_id = "00000000-0000-0000-0000-000000000001"
+    process_id = "00000000-0000-0000-0000-000000000002"
+    mock_auth.return_value = MagicMock(id=user_id, username="test", email="t@t.com", is_active=True)
+    mock_register.return_value = process_id
     mock_transcribe.return_value = "Transcribed text."
     mock_summarize.return_value = "This is a summary of the video."
 
@@ -242,7 +246,8 @@ def test_video_details_endpoint_success(mock_metadata, mock_auth):
     from app.routers.video import video_router
     from app.auth import get_current_active_user
 
-    mock_auth.return_value = MagicMock(id="user-1", username="test", email="t@t.com", is_active=True)
+    user_id = "00000000-0000-0000-0000-000000000001"
+    mock_auth.return_value = MagicMock(id=user_id, username="test", email="t@t.com", is_active=True)
     mock_metadata.return_value = VideoMetadata(
         title="Vimeo Video",
         description="A cool video",
@@ -270,14 +275,17 @@ def test_video_details_endpoint_success(mock_metadata, mock_auth):
 @patch('app.routers.video.get_current_active_user')
 @patch('app.routers.video.register_new_process')
 @patch('app.routers.video.video_transcribe')
-def test_video_transcribe_endpoint_error(mock_transcribe, mock_register, mock_auth):
+@patch('app.routers.video.process_failed')
+def test_video_transcribe_endpoint_error(mock_process_failed, mock_transcribe, mock_register, mock_auth):
     from fastapi.testclient import TestClient
     from fastapi import FastAPI
     from app.routers.video import video_router
     from app.auth import get_current_active_user
 
-    mock_auth.return_value = MagicMock(id="user-1", username="test", email="t@t.com", is_active=True)
-    mock_register.return_value = "process-uuid-1"
+    user_id = "00000000-0000-0000-0000-000000000001"
+    process_id = "00000000-0000-0000-0000-000000000002"
+    mock_auth.return_value = MagicMock(id=user_id, username="test", email="t@t.com", is_active=True)
+    mock_register.return_value = process_id
     mock_transcribe.side_effect = Exception("yt-dlp download failed")
 
     test_app = FastAPI()

@@ -39,6 +39,7 @@ class ApiProcessingResult(BaseModel):
     text: Optional[str] = Field(default=None, title="Video transcription")
     transcription: Optional[str] = Field(default=None, title="Transcription text")
     format: Optional[WHISPER_RESPONSE_FORMAT] = Field(default=None, title="Response format")
+    metadata: Optional[dict] = Field(default=None, title="Video metadata (title, description, duration, etc.)")
 
 
 class YtVideoInfoRequest(BaseModel):
@@ -91,6 +92,7 @@ class YtVideoSummarize(BaseModel):
 
 class SummaryResult(BaseModel):
     summary: str
+    metadata: Optional[dict] = Field(default=None, title="Video metadata (title, description, duration, etc.)")
 
 
 class YoutubeTranscriptionMetadata(BaseModel):

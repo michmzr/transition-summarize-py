@@ -82,6 +82,13 @@ def yt_transcription(
                 "yt_request": yt_request.model_dump()}
         )
 
+        yt_metadata = None
+        try:
+            yt_metadata = get_youtube_metadata(yt_request.url)
+        except Exception as metadata_error:
+            logging.warning(
+                f"Could not fetch YouTube metadata for transcription: '{metadata_error}'")
+
         save_dir = save_dir_path(yt_request.url)
         transcription = yt_transcribe(
             yt_request.url,
@@ -105,7 +112,12 @@ def yt_transcription(
         if accept_header == "text/plain":
             return PlainTextResponse(transcription)
         else:
-            return ApiProcessingResult(result=True, error=None, transcription=transcription, format=yt_request.response_format)
+            metadata_dict = yt_metadata.model_dump(exclude={"subtitles"}) if yt_metadata else None
+            return ApiProcessingResult(
+                result=True, error=None,
+                transcription=transcription,
+                format=yt_request.response_format,
+                metadata=metadata_dict)
     except Exception as e:
         logging.error(f"Error processing YouTube transcription: {str(e)}")
 
@@ -133,6 +145,44 @@ def save_dir_path(url):
     hash_hex = hash_object.hexdigest()
     save_dir = f"./downloads/yt/{hash_hex}/"
     return save_dir
+
+
+def _trim_metadata_text(text: str, max_length: int = 2000) -> str:
+    cleaned_text = " ".join(text.split())
+    if len(cleaned_text) <= max_length:
+        return cleaned_text
+
+    return f"{cleaned_text[:max_length].rstrip()}..."
+
+
+def build_youtube_summary_input(
+        transcription: str,
+        metadata: YoutubeMetadata | None
+) -> str:
+    if not metadata:
+        return transcription
+
+    metadata_lines = []
+    if metadata.title:
+        metadata_lines.append(f"Title: {metadata.title}")
+    if metadata.duration_string:
+        metadata_lines.append(f"Duration: {metadata.duration_string}")
+    elif metadata.duration:
+        metadata_lines.append(f"Duration: {metadata.duration} seconds")
+    if metadata.description:
+        metadata_lines.append(
+            f"Description: {_trim_metadata_text(metadata.description)}")
+
+    if not metadata_lines:
+        return transcription
+
+    return "\n".join([
+        "Video metadata:",
+        *metadata_lines,
+        "",
+        "Transcript:",
+        transcription
+    ])
 
 
 @yt_router.post(
@@ -200,6 +250,13 @@ def yt_summarize(
         )
 
         save_dir = save_dir_path(yt_request.url)
+        yt_metadata = None
+
+        try:
+            yt_metadata = get_youtube_metadata(yt_request.url)
+        except Exception as metadata_error:
+            logging.warning(
+                f"Could not fetch YouTube metadata for summarization: '{metadata_error}'")
 
         transcription = None
 
@@ -222,8 +279,10 @@ def yt_summarize(
             transcription,
             ProcessArtifactFormat.TEXT, yt_request.lang)
 
+        summary_input = build_youtube_summary_input(
+            transcription, yt_metadata)
         summarization = summarize(
-            transcription, yt_request.type, yt_request.lang)
+            summary_input, yt_request.type, yt_request.lang)
         register_process_artifact(
             current_user, process_id,
             ProcessArtifactType.SUMMARY,
@@ -244,7 +303,8 @@ def yt_summarize(
             # return as a file
             return FileResponse(transcription, media_type="text/srt")
         else:
-            return SummaryResult(summary=summarization)
+            metadata_dict = yt_metadata.model_dump(exclude={"subtitles"}) if yt_metadata else None
+            return SummaryResult(summary=summarization, metadata=metadata_dict)
     except Exception as e:
         logging.error(f"Error processing YouTube summarization: '{str(e)}'")
 

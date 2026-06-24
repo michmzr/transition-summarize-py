@@ -39,6 +39,7 @@ class ApiProcessingResult(BaseModel):
     text: Optional[str] = Field(default=None, title="Video transcription")
     transcription: Optional[str] = Field(default=None, title="Transcription text")
     format: Optional[WHISPER_RESPONSE_FORMAT] = Field(default=None, title="Response format")
+    metadata: Optional[dict] = Field(default=None, title="Video metadata (title, description, duration, etc.)")
 
 
 class YtVideoInfoRequest(BaseModel):
@@ -91,6 +92,7 @@ class YtVideoSummarize(BaseModel):
 
 class SummaryResult(BaseModel):
     summary: str
+    metadata: Optional[dict] = Field(default=None, title="Video metadata (title, description, duration, etc.)")
 
 
 class YoutubeTranscriptionMetadata(BaseModel):
@@ -124,6 +126,93 @@ class YoutubeMetadata(BaseModel):
         None, description="The date and time when the video was uploaded")
     thumbnail: Optional[str] = Field(
         None, description="The URL of the video thumbnail image")
+
+
+class VideoMetadata(BaseModel):
+    title: str = Field(
+        default="", description="The title of the video")
+    full_title: Optional[str] = Field(None,
+        description="The full title of the video")
+    description: str = Field(
+        default="", description="The description of the video")
+    duration: Optional[float] = Field(
+        None, description="The duration of the video in seconds")
+    duration_string: Optional[str] = Field(None,
+        description="A human-readable string representation of the video duration")
+    uploader: Optional[str] = Field(
+        None, description="Name of the uploader/channel")
+    uploader_url: Optional[str] = Field(
+        None, description="URL of the uploader/channel page")
+    platform: Optional[str] = Field(
+        None, description="Name of the platform (e.g. vimeo, instagram)")
+    original_url: Optional[str] = Field(
+        None, description="The original URL of the video")
+    upload_date: Optional[datetime] = Field(
+        None, description="The date when the video was uploaded")
+    thumbnail: Optional[str] = Field(
+        None, description="The URL of the video thumbnail image")
+    language: Optional[str] = Field(
+        None, description="The primary language of the video content")
+    subtitles: dict[str, dict[str, YoutubeTranscriptionMetadata]] = Field(
+        default_factory=dict,
+        description="Available subtitles organized by language and format")
+    available_transcriptions: List[str] = Field(
+        default_factory=list,
+        description="List of available transcription languages")
+
+
+class VideoTranscribe(BaseModel):
+    url: str
+    lang: LANG_CODE = Field(default=LANG_CODE.POLISH,
+                            title="Video language as ISO-639-1 code like PL, EN")
+    response_format: WHISPER_RESPONSE_FORMAT = Field(
+        default=WHISPER_RESPONSE_FORMAT.SRT, title="Response format")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "url": "https://vimeo.com/123456789",
+                    "lang": "en",
+                    "response_format": "srt"
+                }
+            ]
+        }
+    }
+
+
+class VideoSummarize(BaseModel):
+    url: str
+    type: SUMMARIZATION_TYPE = Field(
+        default=SUMMARIZATION_TYPE.TLDR, title="Type of summarization")
+    lang: LANG_CODE = Field(default=LANG_CODE.POLISH,
+                            title="Language code of transcription and final summarization text")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "url": "https://vimeo.com/123456789",
+                    "type": "detailed",
+                    "lang": "en"
+                }
+            ]
+        }
+    }
+
+
+class VideoInfoRequest(BaseModel):
+    url: str
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "url": "https://vimeo.com/123456789"
+                }
+            ]
+        }
+    }
 
 
 class Token(BaseModel):

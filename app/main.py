@@ -10,6 +10,7 @@ from app.routers.audio import a_router
 from app.routers.auth import auth_router
 from app.routers.youtube import yt_router
 from app.routers.artifacts import router as artifacts_router
+from app.routers.video import video_router
 from app.schema import models
 from app.settings import Settings, get_settings
 from app.database import init_db
@@ -22,7 +23,12 @@ static_ffmpeg.add_paths()
 
 settings = Settings()
 
-app = FastAPI()
+API_DOCS_KWARGS = {
+    "title": "Transition Summarize API",
+    "swagger_ui_parameters": {"persistAuthorization": True},
+}
+
+app = FastAPI(**API_DOCS_KWARGS)
 
 # Initialize scheduler
 init_scheduler(app)
@@ -40,13 +46,17 @@ if settings.cleanup_downloads_enabled:
 app.add_middleware(RequestIDMiddleware)
 
 # Create a new router for protected routes
-protected_app = FastAPI(dependencies=[Depends(get_current_active_user)])
+protected_app = FastAPI(
+    dependencies=[Depends(get_current_active_user)],
+    **API_DOCS_KWARGS,
+)
 
 # Include routers in the protected app
 protected_app.include_router(a_router)
 protected_app.include_router(yt_router)
 protected_app.include_router(artifacts_router)
 protected_app.include_router(artifacts_router)
+protected_app.include_router(video_router)
 
 # Include the protected app and auth router in the main app
 app.mount("/api", protected_app)
@@ -54,6 +64,7 @@ app.include_router(auth_router)
 app.include_router(yt_router)
 app.include_router(a_router)
 app.include_router(artifacts_router)
+app.include_router(video_router)
 
 # Configure logging with request ID
 logger = logging.getLogger()

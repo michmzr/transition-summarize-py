@@ -171,9 +171,10 @@ def test_video_router_prefix():
 @patch('app.routers.video.get_current_active_user')
 @patch('app.routers.video.register_new_process')
 @patch('app.routers.video.video_transcribe')
+@patch('app.routers.video.get_video_metadata')
 @patch('app.routers.video.update_process_status')
 def test_video_transcribe_endpoint_success(
-    mock_update, mock_transcribe, mock_register, mock_auth
+    mock_update, mock_metadata, mock_transcribe, mock_register, mock_auth
 ):
     from fastapi.testclient import TestClient
     from fastapi import FastAPI
@@ -184,6 +185,7 @@ def test_video_transcribe_endpoint_success(
     process_id = "00000000-0000-0000-0000-000000000002"
     mock_auth.return_value = MagicMock(id=user_id, username="test", email="t@t.com", is_active=True)
     mock_register.return_value = process_id
+    mock_metadata.return_value = None
     mock_transcribe.return_value = "Transcribed text from Vimeo video."
 
     test_app = FastAPI()
@@ -199,6 +201,53 @@ def test_video_transcribe_endpoint_success(
     data = resp.json()
     assert data["result"] is True
     assert data["transcription"] == "Transcribed text from Vimeo video."
+
+
+@patch('app.routers.video.get_current_active_user')
+@patch('app.routers.video.register_new_process')
+@patch('app.routers.video.video_transcribe')
+@patch('app.routers.video.get_video_metadata')
+@patch('app.routers.video.update_process_status')
+def test_video_transcribe_returns_metadata_in_response(
+    mock_update, mock_metadata, mock_transcribe, mock_register, mock_auth
+):
+    from fastapi.testclient import TestClient
+    from fastapi import FastAPI
+    from app.models import VideoMetadata
+    from app.routers.video import video_router
+    from app.auth import get_current_active_user
+
+    user_id = "00000000-0000-0000-0000-000000000001"
+    process_id = "00000000-0000-0000-0000-000000000002"
+    mock_auth.return_value = MagicMock(id=user_id, username="test", email="t@t.com", is_active=True)
+    mock_register.return_value = process_id
+    mock_metadata.return_value = VideoMetadata(
+        title="Instagram Reel",
+        description="Short video about cooking.",
+        duration=30.0,
+        duration_string="0:30",
+        platform="Instagram")
+    mock_transcribe.return_value = "Today we cook pasta."
+
+    test_app = FastAPI()
+    test_app.include_router(video_router)
+    test_app.dependency_overrides[get_current_active_user] = lambda: mock_auth.return_value
+    client = TestClient(test_app)
+
+    resp = client.post(
+        "/video/transcribe",
+        json={
+            "url": "https://www.instagram.com/reel/abc",
+            "lang": "en",
+            "response_format": "text"
+        })
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["metadata"] is not None
+    assert data["metadata"]["title"] == "Instagram Reel"
+    assert data["metadata"]["description"] == "Short video about cooking."
+    assert data["metadata"]["platform"] == "Instagram"
 
 
 @patch('app.routers.video.get_current_active_user')
@@ -375,8 +424,10 @@ def test_video_details_endpoint_success(mock_metadata, mock_auth):
 @patch('app.routers.video.get_current_active_user')
 @patch('app.routers.video.register_new_process')
 @patch('app.routers.video.video_transcribe')
+@patch('app.routers.video.get_video_metadata')
 @patch('app.routers.video.process_failed')
-def test_video_transcribe_endpoint_error(mock_process_failed, mock_transcribe, mock_register, mock_auth):
+def test_video_transcribe_endpoint_error(
+        mock_process_failed, mock_metadata, mock_transcribe, mock_register, mock_auth):
     from fastapi.testclient import TestClient
     from fastapi import FastAPI
     from app.routers.video import video_router
@@ -386,6 +437,7 @@ def test_video_transcribe_endpoint_error(mock_process_failed, mock_transcribe, m
     process_id = "00000000-0000-0000-0000-000000000002"
     mock_auth.return_value = MagicMock(id=user_id, username="test", email="t@t.com", is_active=True)
     mock_register.return_value = process_id
+    mock_metadata.return_value = None
     mock_transcribe.side_effect = Exception("yt-dlp download failed")
 
     test_app = FastAPI()

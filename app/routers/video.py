@@ -117,6 +117,13 @@ def video_transcription(
             request_data={"video_request": video_request.model_dump()}
         )
 
+        video_metadata = None
+        try:
+            video_metadata = get_video_metadata(video_request.url)
+        except Exception as metadata_error:
+            logging.warning(
+                f"Could not fetch video metadata for transcription: '{metadata_error}'")
+
         save_dir = save_dir_path(video_request.url)
         transcription = video_transcribe(
             video_request.url,
@@ -137,10 +144,12 @@ def video_transcription(
         if accept_header == "text/plain":
             return PlainTextResponse(transcription)
         else:
+            metadata_dict = video_metadata.model_dump(exclude={"subtitles"}) if video_metadata else None
             return ApiProcessingResult(
                 result=True, error=None,
                 transcription=transcription,
-                format=video_request.response_format)
+                format=video_request.response_format,
+                metadata=metadata_dict)
     except Exception as e:
         logging.error(f"Error processing video transcription: {str(e)}")
 

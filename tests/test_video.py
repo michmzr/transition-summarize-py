@@ -238,6 +238,48 @@ def test_video_summarize_endpoint_success(
 
 
 @patch('app.routers.video.get_current_active_user')
+@patch('app.routers.video.register_new_process')
+@patch('app.routers.video.video_transcribe')
+@patch('app.routers.video.register_process_artifact')
+@patch('app.routers.video.process_failed')
+@patch('app.routers.video.summarize')
+@patch('app.routers.video.complete_process')
+def test_video_summarize_endpoint_rejects_empty_transcription(
+    mock_complete, mock_summarize, mock_process_failed,
+    mock_artifact, mock_transcribe, mock_register, mock_auth
+):
+    from fastapi.testclient import TestClient
+    from fastapi import FastAPI
+    from app.routers.video import video_router
+    from app.auth import get_current_active_user
+
+    user_id = "00000000-0000-0000-0000-000000000001"
+    process_id = "00000000-0000-0000-0000-000000000002"
+    mock_auth.return_value = MagicMock(id=user_id, username="test", email="t@t.com", is_active=True)
+    mock_register.return_value = process_id
+    mock_transcribe.return_value = ""
+    mock_summarize.return_value = ""
+
+    test_app = FastAPI()
+    test_app.include_router(video_router)
+    test_app.dependency_overrides[get_current_active_user] = lambda: mock_auth.return_value
+    client = TestClient(test_app)
+
+    resp = client.post(
+        "/video/summarize",
+        json={"url": "https://www.instagram.com/p/test", "type": "tldr", "lang": "pl"},
+    )
+
+    assert resp.status_code == 500
+    data = resp.json()
+    assert data["error"] == "Error processing video summarization"
+    assert "No transcription generated" in data["text"]
+    mock_summarize.assert_not_called()
+    mock_complete.assert_not_called()
+    mock_process_failed.assert_called_once()
+
+
+@patch('app.routers.video.get_current_active_user')
 @patch('app.routers.video.get_video_metadata')
 def test_video_details_endpoint_success(mock_metadata, mock_auth):
     from fastapi.testclient import TestClient

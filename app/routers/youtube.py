@@ -135,6 +135,44 @@ def save_dir_path(url):
     return save_dir
 
 
+def _trim_metadata_text(text: str, max_length: int = 2000) -> str:
+    cleaned_text = " ".join(text.split())
+    if len(cleaned_text) <= max_length:
+        return cleaned_text
+
+    return f"{cleaned_text[:max_length].rstrip()}..."
+
+
+def build_youtube_summary_input(
+        transcription: str,
+        metadata: YoutubeMetadata | None
+) -> str:
+    if not metadata:
+        return transcription
+
+    metadata_lines = []
+    if metadata.title:
+        metadata_lines.append(f"Title: {metadata.title}")
+    if metadata.duration_string:
+        metadata_lines.append(f"Duration: {metadata.duration_string}")
+    elif metadata.duration:
+        metadata_lines.append(f"Duration: {metadata.duration} seconds")
+    if metadata.description:
+        metadata_lines.append(
+            f"Description: {_trim_metadata_text(metadata.description)}")
+
+    if not metadata_lines:
+        return transcription
+
+    return "\n".join([
+        "Video metadata:",
+        *metadata_lines,
+        "",
+        "Transcript:",
+        transcription
+    ])
+
+
 @yt_router.post(
     "/summarize",
     response_model=SummaryResult,
@@ -200,6 +238,13 @@ def yt_summarize(
         )
 
         save_dir = save_dir_path(yt_request.url)
+        yt_metadata = None
+
+        try:
+            yt_metadata = get_youtube_metadata(yt_request.url)
+        except Exception as metadata_error:
+            logging.warning(
+                f"Could not fetch YouTube metadata for summarization: '{metadata_error}'")
 
         transcription = None
 
@@ -222,8 +267,10 @@ def yt_summarize(
             transcription,
             ProcessArtifactFormat.TEXT, yt_request.lang)
 
+        summary_input = build_youtube_summary_input(
+            transcription, yt_metadata)
         summarization = summarize(
-            transcription, yt_request.type, yt_request.lang)
+            summary_input, yt_request.type, yt_request.lang)
         register_process_artifact(
             current_user, process_id,
             ProcessArtifactType.SUMMARY,

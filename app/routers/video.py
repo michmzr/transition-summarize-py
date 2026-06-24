@@ -118,7 +118,7 @@ def video_transcription(
 
 @video_router.post(
     "/summarize",
-    response_model=SummaryResult,
+    response_model=SummaryResult | ApiProcessingResult,
     responses={
         200: {
             "description": "Summarization result. Content type depends on the `Accept` request header.",
@@ -170,6 +170,10 @@ def video_summarize(
         transcription = video_transcribe(
             video_request.url, save_dir, video_request.lang,
             WHISPER_RESPONSE_FORMAT.TEXT)
+
+        if not transcription.strip():
+            raise ValueError(
+                "No transcription generated from video audio. The source may have no detectable speech.")
 
         register_process_artifact(
             current_user, process_id,

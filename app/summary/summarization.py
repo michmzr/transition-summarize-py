@@ -23,7 +23,7 @@ def get_template(type):
 ## Output format (markdown)
 
 ### Summary
-Write as many detailed paragraphs as needed to cover all key ideas, arguments, and conclusions. Follow the chronological flow of the transcription — summarize segment by segment using the timestamps from the JSON chunks.
+Write as many detailed paragraphs as needed to cover all key ideas, arguments, and conclusions. If the input includes timestamps, follow the chronological flow and summarize segment by segment.
 
 ### Referenced media
 Articles, books, podcasts, movies, persons mentioned. For each item, add nested bullets with context of how/where it was mentioned. Omit this section if none found.
@@ -39,7 +39,8 @@ Software, hardware, services, products mentioned. For each, add nested bullets w
 
 ## Rules
 - Use markdown formatting: headers, bullet points, numbered lists, bold for key terms.
-- The transcription is in JSON format with timestamps and durations — use them to organize the summary chronologically.
+- The input may include video metadata followed by a transcript. Use metadata only as context; base the summary on the transcript.
+- When timestamps are present in [MM:SS] or [HH:MM:SS] format, use them to organize the summary chronologically.
 - Return only the summary, no meta-commentary.
 
 {text}"""

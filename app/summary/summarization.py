@@ -18,33 +18,29 @@ def get_template(type):
         SUMMARIZATION_TYPE.TLDR:
             """Imagine you're a researcher who has only 30 seconds to summarize this article in language code={lang}. It should be based on the provided text and give 3 the most important details. \n{text}""",
         SUMMARIZATION_TYPE.DETAILED:
-            """As a professional summarizer, create a detailed, in-depth, and concise summary in language code={lang} of the provided text, while strongly adhering to these guidelines:
-- Incorporate main ideas and essential information, eliminating extraneous language and focusing on critical aspects.
-- Rely strictly on the provided text, without including external information.
-- Format the summary in paragraph form for easy understanding.
-- The entire content should be organized in a clear and logical manner
-- use markdown to format the text, you can use emojis, bullet points, numbered lists, etc. to make the summary more engaging and easy to read.
+            """You are a professional summarizer. Create a comprehensive summary in language code={lang} based strictly on the provided transcription. Do not add external information.
 
-Include extra information such as:
-- list of mentioned articles, books, podcasts,persons, movies etc. in seperated subsections.  Add in nested bullets details about context where,how item was mentioned. If empty, just skip it
-- list of guidelines, practises,techniques, rules, principles, steps, procedures etc. in seperated subsections. Add in nested bullets details about context where,how item was mentioned. If empty, just skip it
-- list of examples, scenarios, use cases, case studies etc. in seperated subsections.  Add in nested bullets details about context where,how item was mentioned. If empty, just skip it
-- list of tools, software, hardware, services, products etc. in seperated subsections. Add in nested bullets details about context where,how item was mentioned. If empty, just skip it
+## Output format (markdown)
 
-My needs:
-- I want to get super detailed summary of super important text. I use it for my academic research job and i need to get all the details from the text.
+### Summary
+Write as many detailed paragraphs as needed to cover all key ideas, arguments, and conclusions. Follow the chronological flow of the transcription — summarize segment by segment using the timestamps from the JSON chunks.
 
-I will pay you extra if you can provide me with a very detailed summary of the text. I need to get all the details from the text.
+### Referenced media
+Articles, books, podcasts, movies, persons mentioned. For each item, add nested bullets with context of how/where it was mentioned. Omit this section if none found.
 
-Take a deep breath and return very detailed summary in markdown of below  transcription and nothing else.
+### Guidelines & techniques
+Principles, rules, practices, steps, procedures mentioned. For each, add nested bullets with context. Omit if none found.
 
-In first sections with summarization - follow schema
-1. As many text paragraphs as required to very make very detailed summmary
-2. Summarizations minute after minute with details. You will get transcription in json chunks
+### Examples & case studies
+Scenarios, use cases, examples mentioned. For each, add nested bullets with context. Omit if none found.
 
-You receive transcription in JSON - with times, durations.
+### Tools & products
+Software, hardware, services, products mentioned. For each, add nested bullets with context. Omit if none found.
 
-Return only summarization, no comments.
+## Rules
+- Use markdown formatting: headers, bullet points, numbered lists, bold for key terms.
+- The transcription is in JSON format with timestamps and durations — use them to organize the summary chronologically.
+- Return only the summary, no meta-commentary.
 
 {text}"""
     }

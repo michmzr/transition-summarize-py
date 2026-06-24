@@ -4,37 +4,37 @@
 #### First Time Setup
 1. Initialize Alembic (if not done before):
 ```bash
-alembic init alembic
+uv alembic init alembic
 ```
 
 2. Initialize the database schema:
 ```bash
-alembic stamp head
+uv alembic stamp head
 ```
 
 3. Run the initial migration:
 ```bash
-alembic upgrade head
+uv alembic upgrade head
 ```
 
 #### Create a new migration:
 1. Create a new migration:
 ```bash
-alembic revision --autogenerate -m "migration name"
+uv alembic revision --autogenerate -m "migration name"
 ```
 
 2. Apply pending migrations:
 ```bash
-alembic upgrade head
+uv alembic upgrade head
 ```
 
 3. Check migration status:
 ```bash
-alembic current
+uv alembic current
 ```
 
 ```bash
-alembic history
+uv alembic history
 ```
 
 #### Troubleshooting
@@ -42,12 +42,12 @@ alembic history
 If you need to reset the database:
 1. Drop all tables:
 ```bash
-alembic downgrade base
+uv alembic downgrade base
 ```
 
 2. Reapply all migrations:
 ```bash
-alembic upgrade head
+uv alembic upgrade head
 ```
 
 ## Running the Application
@@ -60,7 +60,7 @@ docker-compose --env-file ./.env -f ./deploy/docker-compose.yml up
 
 2. Ensure database schema is up to date:
 ```bash
-alembic upgrade head
+uv alembic upgrade head
 ```
 
 3. Run the application:

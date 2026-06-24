@@ -23,7 +23,12 @@ static_ffmpeg.add_paths()
 
 settings = Settings()
 
-app = FastAPI()
+API_DOCS_KWARGS = {
+    "title": "Transition Summarize API",
+    "swagger_ui_parameters": {"persistAuthorization": True},
+}
+
+app = FastAPI(**API_DOCS_KWARGS)
 
 # Initialize scheduler
 init_scheduler(app)
@@ -41,7 +46,10 @@ if settings.cleanup_downloads_enabled:
 app.add_middleware(RequestIDMiddleware)
 
 # Create a new router for protected routes
-protected_app = FastAPI(dependencies=[Depends(get_current_active_user)])
+protected_app = FastAPI(
+    dependencies=[Depends(get_current_active_user)],
+    **API_DOCS_KWARGS,
+)
 
 # Include routers in the protected app
 protected_app.include_router(a_router)

@@ -34,6 +34,44 @@ def save_dir_path(url: str) -> str:
     return f"./downloads/video/{hash_hex}/"
 
 
+def _trim_metadata_text(text: str, max_length: int = 2000) -> str:
+    cleaned_text = " ".join(text.split())
+    if len(cleaned_text) <= max_length:
+        return cleaned_text
+
+    return f"{cleaned_text[:max_length].rstrip()}..."
+
+
+def build_video_summary_input(
+        transcription: str,
+        metadata: VideoMetadata | None
+) -> str:
+    if not metadata:
+        return transcription
+
+    metadata_lines = []
+    if metadata.title:
+        metadata_lines.append(f"Title: {metadata.title}")
+    if metadata.duration_string:
+        metadata_lines.append(f"Duration: {metadata.duration_string}")
+    elif metadata.duration:
+        metadata_lines.append(f"Duration: {metadata.duration} seconds")
+    if metadata.description:
+        metadata_lines.append(
+            f"Description: {_trim_metadata_text(metadata.description)}")
+
+    if not metadata_lines:
+        return transcription
+
+    return "\n".join([
+        "Video metadata:",
+        *metadata_lines,
+        "",
+        "Transcript:",
+        transcription
+    ])
+
+
 @video_router.post(
     "/transcribe",
     response_model=ApiProcessingResult,
@@ -167,6 +205,13 @@ def video_summarize(
 
         save_dir = save_dir_path(video_request.url)
 
+        video_metadata = None
+        try:
+            video_metadata = get_video_metadata(video_request.url)
+        except Exception as metadata_error:
+            logging.warning(
+                f"Could not fetch video metadata for summarization: '{metadata_error}'")
+
         transcription = video_transcribe(
             video_request.url, save_dir, video_request.lang,
             WHISPER_RESPONSE_FORMAT.TEXT)
@@ -181,8 +226,9 @@ def video_summarize(
             transcription,
             ProcessArtifactFormat.TEXT, video_request.lang)
 
+        summary_input = build_video_summary_input(transcription, video_metadata)
         summarization = summarize(
-            transcription, video_request.type, video_request.lang)
+            summary_input, video_request.type, video_request.lang)
         register_process_artifact(
             current_user, process_id,
             ProcessArtifactType.SUMMARY,
@@ -199,7 +245,8 @@ def video_summarize(
         elif accept_header == "text/srt":
             return FileResponse(transcription, media_type="text/srt")
         else:
-            return SummaryResult(summary=summarization)
+            metadata_dict = video_metadata.model_dump(exclude={"subtitles"}) if video_metadata else None
+            return SummaryResult(summary=summarization, metadata=metadata_dict)
     except Exception as e:
         logging.error(f"Error processing video summarization: '{str(e)}'")
 

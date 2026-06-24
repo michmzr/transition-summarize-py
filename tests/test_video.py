@@ -204,12 +204,13 @@ def test_video_transcribe_endpoint_success(
 @patch('app.routers.video.get_current_active_user')
 @patch('app.routers.video.register_new_process')
 @patch('app.routers.video.video_transcribe')
+@patch('app.routers.video.get_video_metadata')
 @patch('app.routers.video.register_process_artifact')
 @patch('app.routers.video.summarize')
 @patch('app.routers.video.complete_process')
 def test_video_summarize_endpoint_success(
     mock_complete, mock_summarize, mock_artifact,
-    mock_transcribe, mock_register, mock_auth
+    mock_metadata, mock_transcribe, mock_register, mock_auth
 ):
     from fastapi.testclient import TestClient
     from fastapi import FastAPI
@@ -220,6 +221,7 @@ def test_video_summarize_endpoint_success(
     process_id = "00000000-0000-0000-0000-000000000002"
     mock_auth.return_value = MagicMock(id=user_id, username="test", email="t@t.com", is_active=True)
     mock_register.return_value = process_id
+    mock_metadata.return_value = None
     mock_transcribe.return_value = "Transcribed text."
     mock_summarize.return_value = "This is a summary of the video."
 
@@ -240,13 +242,68 @@ def test_video_summarize_endpoint_success(
 @patch('app.routers.video.get_current_active_user')
 @patch('app.routers.video.register_new_process')
 @patch('app.routers.video.video_transcribe')
+@patch('app.routers.video.get_video_metadata')
+@patch('app.routers.video.register_process_artifact')
+@patch('app.routers.video.summarize')
+@patch('app.routers.video.complete_process')
+def test_video_summarize_passes_metadata_context_and_returns_it(
+        mock_complete, mock_summarize, mock_artifact,
+        mock_metadata, mock_transcribe, mock_register, mock_auth):
+    from fastapi.testclient import TestClient
+    from fastapi import FastAPI
+    from app.models import VideoMetadata
+    from app.routers.video import video_router
+    from app.auth import get_current_active_user
+
+    user_id = "00000000-0000-0000-0000-000000000001"
+    process_id = "00000000-0000-0000-0000-000000000002"
+    mock_auth.return_value = MagicMock(id=user_id, username="test", email="t@t.com", is_active=True)
+    mock_register.return_value = process_id
+    mock_metadata.return_value = VideoMetadata(
+        title="Vimeo Talk",
+        description="An insightful presentation about testing.",
+        duration=900.0,
+        duration_string="15:00",
+        platform="Vimeo",
+        original_url="https://vimeo.com/789")
+    mock_transcribe.return_value = "This is the transcribed text."
+    mock_summarize.return_value = "Summary of the vimeo talk."
+
+    test_app = FastAPI()
+    test_app.include_router(video_router)
+    test_app.dependency_overrides[get_current_active_user] = lambda: mock_auth.return_value
+    client = TestClient(test_app)
+
+    resp = client.post(
+        "/video/summarize",
+        json={"url": "https://vimeo.com/789", "type": "detailed", "lang": "en"})
+
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["metadata"] is not None
+    assert data["metadata"]["title"] == "Vimeo Talk"
+    assert data["metadata"]["description"] == "An insightful presentation about testing."
+
+    text_sent_to_model = mock_summarize.call_args.args[0]
+    assert "Title: Vimeo Talk" in text_sent_to_model
+    assert "Duration: 15:00" in text_sent_to_model
+    assert "Description: An insightful presentation about testing." in text_sent_to_model
+    assert "Transcript:" in text_sent_to_model
+    assert "This is the transcribed text." in text_sent_to_model
+
+
+@patch('app.routers.video.get_current_active_user')
+@patch('app.routers.video.register_new_process')
+@patch('app.routers.video.video_transcribe')
+@patch('app.routers.video.get_video_metadata')
 @patch('app.routers.video.register_process_artifact')
 @patch('app.routers.video.process_failed')
 @patch('app.routers.video.summarize')
 @patch('app.routers.video.complete_process')
 def test_video_summarize_endpoint_rejects_empty_transcription(
     mock_complete, mock_summarize, mock_process_failed,
-    mock_artifact, mock_transcribe, mock_register, mock_auth
+    mock_artifact, mock_metadata, mock_transcribe, mock_register, mock_auth
 ):
     from fastapi.testclient import TestClient
     from fastapi import FastAPI
@@ -257,6 +314,7 @@ def test_video_summarize_endpoint_rejects_empty_transcription(
     process_id = "00000000-0000-0000-0000-000000000002"
     mock_auth.return_value = MagicMock(id=user_id, username="test", email="t@t.com", is_active=True)
     mock_register.return_value = process_id
+    mock_metadata.return_value = None
     mock_transcribe.return_value = ""
     mock_summarize.return_value = ""
 

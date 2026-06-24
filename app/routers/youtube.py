@@ -82,6 +82,13 @@ def yt_transcription(
                 "yt_request": yt_request.model_dump()}
         )
 
+        yt_metadata = None
+        try:
+            yt_metadata = get_youtube_metadata(yt_request.url)
+        except Exception as metadata_error:
+            logging.warning(
+                f"Could not fetch YouTube metadata for transcription: '{metadata_error}'")
+
         save_dir = save_dir_path(yt_request.url)
         transcription = yt_transcribe(
             yt_request.url,
@@ -105,7 +112,12 @@ def yt_transcription(
         if accept_header == "text/plain":
             return PlainTextResponse(transcription)
         else:
-            return ApiProcessingResult(result=True, error=None, transcription=transcription, format=yt_request.response_format)
+            metadata_dict = yt_metadata.model_dump(exclude={"subtitles"}) if yt_metadata else None
+            return ApiProcessingResult(
+                result=True, error=None,
+                transcription=transcription,
+                format=yt_request.response_format,
+                metadata=metadata_dict)
     except Exception as e:
         logging.error(f"Error processing YouTube transcription: {str(e)}")
 

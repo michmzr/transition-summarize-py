@@ -303,7 +303,8 @@ def yt_summarize(
             # return as a file
             return FileResponse(transcription, media_type="text/srt")
         else:
-            return SummaryResult(summary=summarization)
+            metadata_dict = yt_metadata.model_dump(exclude={"subtitles"}) if yt_metadata else None
+            return SummaryResult(summary=summarization, metadata=metadata_dict)
     except Exception as e:
         logging.error(f"Error processing YouTube summarization: '{str(e)}'")
 

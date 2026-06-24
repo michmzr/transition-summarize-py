@@ -17,7 +17,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute("ALTER TYPE requesttype ADD VALUE IF NOT EXISTS 'video'")
+    op.execute("ALTER TYPE requesttype ADD VALUE IF NOT EXISTS 'VIDEO'")
 
 
 def downgrade() -> None:

@@ -74,6 +74,37 @@ Port i host można nadpisać zmiennymi środowiskowymi:
 HOST=0.0.0.0 PORT=8086 uv run -m app
 ```
 
+## API Documentation (Swagger / OpenAPI)
+
+FastAPI udostępnia dokumentację API automatycznie — nie trzeba nic osobno instalować ani uruchamiać.
+
+Po starcie aplikacji (`uv run -m app`) dokumentacja jest dostępna pod:
+
+| Co | URL (domyślny port 8000) |
+|---|---|
+| Swagger UI | http://127.0.0.1:8000/docs |
+| ReDoc | http://127.0.0.1:8000/redoc |
+| OpenAPI JSON | http://127.0.0.1:8000/openapi.json |
+
+Chronione endpointy są zamontowane pod `/api` — ich dokumentacja:
+
+| Co | URL |
+|---|---|
+| Swagger UI | http://127.0.0.1:8000/api/docs |
+| OpenAPI JSON | http://127.0.0.1:8000/api/openapi.json |
+
+Przy innym porcie (np. `PORT=8086`) zamień `8000` na właściwy numer.
+
+### Autoryzacja w Swagger UI
+
+Większość endpointów wymaga tokenu JWT:
+
+1. Wywołaj `POST /auth/token` z username i password.
+2. Kliknij **Authorize** w Swagger UI.
+3. Wklej token w formacie `Bearer <token>`.
+
+Token jest zapamiętywany w sesji Swaggera (`persistAuthorization`).
+
 ## Tests
 ### Integration Tests
 ```bash

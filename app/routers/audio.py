@@ -5,7 +5,6 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import UploadFile, APIRouter, Response, status, Form, Request, Depends, HTTPException
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from starlette.responses import PlainTextResponse
 
@@ -148,10 +147,13 @@ def audio_trans(
         if accept_header == "text/plain":
             return PlainTextResponse(transcription)
         elif accept_header == "text/srt":
-            # return as a file
             file_name = os.path.splitext(uploaded_file.filename)[0] + ".srt"
             logging.info(f"File name: {file_name}")
-            return FileResponse(transcription, media_type="text/srt", filename=file_name)
+            return Response(
+                content=transcription,
+                media_type="text/srt",
+                headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
+            )
         else:
             return ApiProcessingResult(result=True, error=None, transcription=transcription,
                                     format=transcription_response_format)

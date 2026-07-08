@@ -3,7 +3,6 @@ import logging
 import os
 
 from fastapi import APIRouter, Request, Depends, Response, status
-from fastapi.responses import FileResponse
 from starlette.responses import PlainTextResponse
 
 from app.auth import get_current_active_user
@@ -300,8 +299,11 @@ def yt_summarize(
         if accept_header == "text/plain":
             return PlainTextResponse(summarization)
         elif accept_header == "text/srt":
-            # return as a file
-            return FileResponse(transcription, media_type="text/srt")
+            return Response(
+                content=transcription,
+                media_type="text/srt",
+                headers={"Content-Disposition": 'attachment; filename="transcription.srt"'},
+            )
         else:
             metadata_dict = yt_metadata.model_dump(exclude={"subtitles"}) if yt_metadata else None
             return SummaryResult(summary=summarization, metadata=metadata_dict)

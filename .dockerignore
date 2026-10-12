@@ -5,6 +5,7 @@
 !.env.example
 *.pem
 *.key
+.cache
 .pytest_cache
 __pycache__
 *.pyc

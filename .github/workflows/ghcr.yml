@@ -1,0 +1,63 @@
+name: Publish Coolify image to GHCR
+
+on:
+  push:
+    branches:
+      - main
+      - feat/coolify-ghcr-publishing
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghcr-coolify-dev
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.repository == 'michmzr/transition-summarize-py' &&
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/coolify-ghcr-publishing')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build source and publish image
+        id: publish
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/michmzr/av-summarizer-py:coolify-dev
+            ghcr.io/michmzr/av-summarizer-py:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Record published digest
+        env:
+          IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
+        run: printf 'Published `ghcr.io/michmzr/av-summarizer-py@%s`\n' "$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"

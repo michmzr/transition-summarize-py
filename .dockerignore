@@ -1,6 +1,10 @@
 .venv
 .git
 .env
+.env.*
+!.env.example
+*.pem
+*.key
 .pytest_cache
 __pycache__
 *.pyc
